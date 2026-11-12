@@ -1,0 +1,6 @@
+Bash 
+
+npm install 
+
+sure to run this command in the terminal to install the necessary dependencies for your project.
+start the development server by running `npm start` after the installation is complete. This will allow you to view your project in the browser and make any necessary changes.  

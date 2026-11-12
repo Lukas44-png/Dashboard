@@ -1,0 +1,13 @@
+name = "product-bot-api"
+main = "worker/src/index.js"
+compatibility_date = "2026-11-02"
+
+[vars]
+PAGES_URL = "https://YOUR-GITHUB-USERNAME.github.io/YOUR-REPOSITORY"
+PAGES_ORIGIN = "https://YOUR-GITHUB-USERNAME.github.io"
+API_PUBLIC_URL = "https://YOUR-WORKER.workers.dev"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "product-bot"
+database_id = "SET_AFTER_CREATING_D1"

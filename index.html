@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0d17">
+  <title>Product Bot — Server Control</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d17;
+      --panel: #111421;
+      --panel-soft: #151927;
+      --line: #222638;
+      --muted: #898fa6;
+      --text: #f3f4fa;
+      --purple: #8b78ff;
+      --purple-soft: rgba(139, 120, 255, .13);
+      --mint: #58dfb1;
+      --red: #ff6d82;
+      --amber: #ffc879;
+      --font: "DM Sans", sans-serif;
+      --display: "Space Grotesk", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 75% -15%, rgba(119, 87, 255, .13), transparent 42%),
+        var(--bg);
+      color: var(--text);
+      font: 14px/1.5 var(--font);
+    }
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--purple);
+      outline-offset: 3px;
+    }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 3;
+      display: flex;
+      width: 246px;
+      flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: rgba(14, 16, 27, .96);
+      padding: 24px 16px 18px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 9px 29px; }
+    .brand-mark {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 1px solid rgba(167, 151, 255, .35);
+      border-radius: 12px;
+      background: linear-gradient(145deg, #9a87ff, #6d59df);
+      box-shadow: 0 5px 22px rgba(139, 120, 255, .24);
+      font: 700 17px var(--display);
+      color: white;
+    }
+    .brand-name { font: 700 16px var(--display); letter-spacing: -.5px; }
+    .brand-caption { margin-top: 1px; color: var(--muted); font-size: 11px; }
+    .side-label {
+      padding: 0 10px;
+      margin: 9px 0 9px;
+      color: #777e96;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.15px;
+      text-transform: uppercase;
+    }
+    .nav { display: grid; gap: 4px; }
+    .nav-button {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      padding: 10px 11px;
+      color: #a7adc0;
+      cursor: pointer;
+      text-align: left;
+      transition: .18s ease;
+    }
+    .nav-button:hover { background: #171a29; color: var(--text); }
+    .nav-button.active { background: var(--purple-soft); color: #c1b7ff; }
+    .nav-icon { display: inline-grid; width: 19px; place-items: center; font-size: 16px; }
+    .nav-count {
+      margin-left: auto;
+      border-radius: 20px;
+      background: #202438;
+      padding: 2px 7px;
+      color: #b7bdd0;
+      font-size: 10px;
+    }
+    .sidebar-bottom { margin-top: auto; }
+    .server-card {
+      margin: 0 3px 14px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #121523;
+      padding: 12px;
+    }
+    .server-label { color: var(--muted); font-size: 11px; }
+    .server-name { margin-top: 5px; font-weight: 600; }
+    .server-select {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+    }
+    .server-status { display: flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--mint); font-size: 11px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+    .main { width: calc(100% - 246px); margin-left: 246px; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      min-height: 66px;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(34, 38, 56, .8);
+      background: rgba(11, 13, 23, .86);
+      padding: 0 34px;
+      backdrop-filter: blur(16px);
+    }
+    .breadcrumb { color: var(--muted); font-size: 12px; }
+    .breadcrumb strong { color: #e4e6f0; font-weight: 500; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .guild-select { width: min(230px, 30vw); min-height: 34px; padding: 6px 9px; font-size: 11px; }
+    .setup-notice { margin-bottom: 16px; }
+    .premium-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .premium-price { margin: 8px 0 14px; font: 600 30px var(--display); }
+    .premium-price small { color: var(--muted); font: 12px var(--font); }
+    .premium-features { display: grid; gap: 9px; margin: 0 0 18px; padding: 0; color: #c3c8d8; font-size: 12px; list-style: none; }
+    .premium-features li::before { margin-right: 8px; color: var(--mint); content: "✓"; }
+    .premium-card { position: relative; overflow: hidden; }
+    .premium-card.featured { border-color: rgba(139, 120, 255, .55); }
+    .premium-card.featured::after { position: absolute; top: -50px; right: -40px; width: 130px; height: 130px; border-radius: 50%; background: rgba(139, 120, 255, .10); content: ""; }
+    .icon-button, .avatar {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--panel);
+      color: #c7cada;
+      cursor: pointer;
+    }
+    .avatar { border: 0; border-radius: 50%; background: #33304e; color: #d7ceff; font-weight: 700; }
+    .content { width: min(1190px, 100%); margin: 0 auto; padding: 34px; }
+    .page { display: none; animation: appear .2s ease; }
+    .page.active { display: block; }
+    @keyframes appear { from { opacity: .35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+    .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+    .eyebrow { margin-bottom: 6px; color: #a99bff; font-size: 11px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 5px; font: 600 clamp(24px, 3vw, 31px)/1.15 var(--display); letter-spacing: -1px; }
+    .subtitle { margin: 0; color: var(--muted); }
+    .button {
+      display: inline-flex;
+      min-height: 38px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #191c2b;
+      padding: 0 13px;
+      color: #e7e8f1;
+      cursor: pointer;
+      transition: .18s ease;
+      white-space: nowrap;
+    }
+    [hidden] { display: none !important; }
+    .button:disabled { cursor: not-allowed; opacity: .48; }
+    .button:hover { border-color: #444964; background: #202438; }
+    .button.primary { border-color: #9482ff; background: #8170ed; color: white; box-shadow: 0 4px 16px rgba(120, 98, 239, .2); }
+    .button.primary:hover { background: #9281ff; }
+    .button.small { min-height: 32px; padding: 0 10px; font-size: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 18px; }
+    .metric, .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(20, 23, 37, .98), rgba(16, 19, 31, .98));
+    }
+    .metric { min-height: 105px; padding: 15px 16px; }
+    .metric-label { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12px; }
+    .metric-icon { color: #b3a7ff; font-size: 15px; }
+    .metric-value { margin-top: 9px; font: 600 25px var(--display); letter-spacing: -.7px; }
+    .metric-note { margin-left: 7px; color: var(--mint); font: 500 11px var(--font); letter-spacing: 0; }
+    .overview-grid { display: grid; grid-template-columns: minmax(0, 1.42fr) minmax(270px, .9fr); gap: 15px; }
+    .card { padding: 19px; }
+    .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+    .card-title { margin: 0; font: 600 15px var(--display); }
+    .card-caption { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 20px; background: rgba(88, 223, 177, .1); padding: 4px 8px; color: var(--mint); font-size: 10px; font-weight: 600; }
+    .badge.purple { background: var(--purple-soft); color: #b7aaff; }
+    .badge.neutral { background: #202438; color: #aeb4c9; }
+    .verify-preview {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      border: 1px solid #28283c;
+      border-radius: 10px;
+      background: radial-gradient(ellipse at 0% 50%, rgba(139, 120, 255, .13), transparent 55%), #131522;
+      padding: 16px;
+    }
+    .verify-emblem { display: grid; width: 48px; height: 48px; flex: 0 0 48px; place-items: center; border: 1px solid rgba(169, 155, 255, .28); border-radius: 14px; background: rgba(139, 120, 255, .13); color: #c0b5ff; font-size: 22px; }
+    .verify-preview h3 { margin: 0 0 4px; font: 600 14px var(--display); }
+    .verify-preview p { margin: 0; color: var(--muted); font-size: 11px; }
+    .preview-button { margin-left: auto; flex: 0 0 auto; }
+    .option-list { display: grid; gap: 0; margin-top: 15px; }
+    .option-row { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(34, 38, 56, .7); }
+    .option-row:last-child { border-bottom: 0; }
+    .option-name { font-size: 12px; }
+    .option-description { margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .switch { position: relative; display: inline-flex; width: 35px; height: 20px; flex: 0 0 auto; }
+    .switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .switch-track { position: absolute; inset: 0; border: 1px solid #373b4e; border-radius: 20px; background: #282b3a; cursor: pointer; transition: .18s; }
+    .switch-track::after { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: #a3a8b8; content: ""; transition: .18s; }
+    .switch input:checked + .switch-track { border-color: #8675f2; background: #6f5cda; }
+    .switch input:checked + .switch-track::after { transform: translateX(15px); background: white; }
+    .switch input:focus-visible + .switch-track { outline: 2px solid var(--purple); outline-offset: 3px; }
+    .ticket-stat { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .ticket-stat strong { font: 600 29px var(--display); }
+    .ticket-stat span { display: block; color: var(--muted); font-size: 11px; }
+    .ticket-avatars { display: flex; padding-left: 6px; }
+    .mini-avatar { display: grid; width: 26px; height: 26px; margin-left: -6px; place-items: center; border: 2px solid #131522; border-radius: 50%; background: #403864; color: #e0d9ff; font-size: 9px; font-weight: 700; }
+    .activity-list { display: grid; }
+    .activity { display: flex; align-items: center; gap: 11px; border-top: 1px solid rgba(34, 38, 56, .7); padding: 11px 0; }
+    .activity:first-child { border-top: 0; }
+    .activity-icon { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 9px; background: #1d2032; color: #b5a8ff; }
+    .activity-copy { min-width: 0; font-size: 11px; }
+    .activity-copy strong { font-weight: 600; }
+    .activity-time { margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .activity-tag { margin-left: auto; color: #aeb3c5; font-size: 10px; white-space: nowrap; }
+    .section-gap { margin-top: 15px; }
+    .two-column { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 15px; }
+    .field { display: grid; gap: 6px; margin-bottom: 14px; }
+    .field label { color: #cbd0df; font-size: 12px; font-weight: 500; }
+    .field small { color: var(--muted); font-size: 10px; }
+    .input, .select, .textarea {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #2a2e42;
+      border-radius: 8px;
+      background: #0f121e;
+      padding: 9px 11px;
+      color: var(--text);
+    }
+    .input[aria-invalid="true"], .textarea[aria-invalid="true"] { border-color: #ff6d82; }
+    .textarea { min-height: 94px; resize: vertical; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 13px; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .admin-table-wrap { max-width: 100%; overflow-x: auto; }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
+    .admin-table th, .admin-table td { border-bottom: 1px solid rgba(34, 38, 56, .8); padding: 10px 8px; vertical-align: top; }
+    .admin-table th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+    .admin-table td { color: #d7d9e5; }
+    .hint-box { border: 1px solid #302c4a; border-radius: 9px; background: rgba(139, 120, 255, .07); padding: 13px; color: #c8c0f1; font-size: 11px; }
+    .hint-box strong { display: block; margin-bottom: 4px; color: #e3dcff; }
+    .inline-code { border-radius: 4px; background: #202238; padding: 2px 5px; color: #c8bdff; font: 11px ui-monospace, monospace; }
+    .module-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 15px; }
+    .search-wrap { position: relative; width: min(300px, 100%); }
+    .search-wrap .input { padding-left: 34px; }
+    .search-icon { position: absolute; top: 9px; left: 11px; color: var(--muted); }
+    .module-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filter-button { border: 1px solid var(--line); border-radius: 20px; background: transparent; padding: 6px 10px; color: #aab0c2; cursor: pointer; font-size: 11px; }
+    .filter-button.active { border-color: #665bb0; background: var(--purple-soft); color: #c5bbff; }
+    .module-groups { display: grid; gap: 18px; }
+    .module-group-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 9px; color: #c7cadd; font: 600 13px var(--display); }
+    .module-group-heading span { color: var(--muted); font: 11px var(--font); }
+    .module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .module-card { display: flex; min-height: 67px; align-items: center; gap: 11px; border: 1px solid var(--line); border-radius: 9px; background: #111421; padding: 11px; }
+    .module-icon { display: grid; width: 35px; height: 35px; flex: 0 0 35px; place-items: center; border-radius: 9px; background: #1e2033; color: #b7aaff; font-size: 15px; }
+    .module-info { min-width: 0; }
+    .module-name { overflow: hidden; color: #e5e6ef; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .module-desc { overflow: hidden; margin-top: 2px; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .module-card .switch { margin-left: auto; }
+    .module-config-button { flex: 0 0 auto; margin-left: auto; padding: 0 9px; font-size: 10px; }
+    .module-card .switch + .module-config-button,
+    .module-card .badge + .module-config-button { margin-left: 0; }
+    .module-config-highlight { outline: 2px solid var(--purple); outline-offset: 3px; transition: outline-color .2s; }
+    .ticket-preview { border: 1px solid #2a2e42; border-radius: 10px; background: #0e111c; padding: 16px; }
+    .ticket-preview-top { display: flex; align-items: center; gap: 9px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+    .ticket-preview-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; background: #232039; color: #c0b5ff; }
+    .ticket-preview-title { font-weight: 600; }
+    .ticket-preview-subtitle { margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .ticket-preview-body { padding: 13px 0; color: #b9bed0; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .text-preview { margin-top: 7px; border-left: 2px solid #6f61bf; padding: 7px 10px; color: #c5c8d6; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .text-preview-label { display: block; margin-bottom: 4px; color: #a99bff; font-size: 10px; font-weight: 700; }
+    .question-preview { display: grid; gap: 5px; margin: 0; padding-left: 21px; color: #c5c8d6; font-size: 11px; }
+    .question-preview.empty { color: var(--muted); list-style: none; padding-left: 0; }
+    .field-error { min-height: 0; color: #ff91a0; font-size: 11px; }
+    .field-error:empty { display: none; }
+    .character-count { display: block; margin: -10px 0 12px; color: var(--muted); font-size: 10px; text-align: right; }
+    .character-count.near-limit { color: var(--amber); }
+    .save-state { display: inline-flex; min-height: 22px; align-items: center; gap: 6px; margin-top: 6px; color: var(--mint); font-size: 11px; }
+    .save-state::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ""; }
+    .save-state.dirty { color: var(--amber); }
+    .save-state.error { color: #ff91a0; }
+    .form-actions { flex-wrap: wrap; }
+    .ticket-preview .button { width: 100%; }
+    .panel-preview-image { width: 100%; max-height: 180px; margin: 0 0 12px; border-radius: 8px; object-fit: cover; }
+    .settings-list { display: grid; gap: 2px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; border-bottom: 1px solid rgba(34, 38, 56, .7); padding: 14px 0; }
+    .settings-row:last-child { border-bottom: 0; }
+    .settings-row strong { display: block; font-size: 12px; font-weight: 500; }
+    .settings-row span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .empty-state { padding: 27px 12px; color: var(--muted); text-align: center; font-size: 12px; }
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 8;
+      max-width: min(390px, calc(100vw - 32px));
+      border: 1px solid #39415a;
+      border-radius: 10px;
+      background: #191d2c;
+      padding: 12px 15px;
+      color: #edf0f7;
+      box-shadow: 0 15px 45px rgba(0, 0, 0, .35);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: .2s ease;
+    }
+    .toast.show { opacity: 1; transform: none; }
+    .mobile-menu { display: none; }
+    .mobile-menu-backdrop { display: none; }
+    @media (max-width: 900px) {
+      .sidebar { width: 215px; }
+      .main { width: calc(100% - 215px); margin-left: 215px; }
+      .content { padding: 27px 22px; }
+      .topbar { padding: 0 22px; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .overview-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 650px) {
+      .sidebar {
+        width: min(290px, calc(100vw - 54px));
+        transform: translateX(-105%);
+        transition: transform .22s ease;
+      }
+      .app.menu-open .sidebar { transform: translateX(0); }
+      .mobile-menu-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        display: block;
+        border: 0;
+        background: rgba(3, 5, 12, .68);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s ease;
+      }
+      .app.menu-open .mobile-menu-backdrop { opacity: 1; pointer-events: auto; }
+      .main { width: 100%; margin-left: 0; }
+      .content { padding: 23px 15px; }
+      .topbar { min-height: 58px; flex-wrap: wrap; gap: 9px; padding: 9px 15px; }
+      .topbar-leading { display: flex; min-width: 0; flex: 1; align-items: center; gap: 10px; }
+      .breadcrumb { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
+      .top-actions { width: 100%; gap: 7px; }
+      .guild-select { width: auto; min-width: 0; flex: 1; }
+      .top-actions .button { flex: 0 0 auto; }
+      .mobile-menu { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; }
+      .page-heading { align-items: flex-start; }
+      .page-heading > .button { align-self: flex-start; }
+      .two-column { grid-template-columns: 1fr; }
+      .module-grid { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .premium-grid { grid-template-columns: 1fr; }
+      .preview-button { font-size: 0; width: 36px; padding: 0; }
+      .preview-button::after { content: "→"; font-size: 15px; }
+    }
+    @media (max-width: 400px) {
+      .metrics { gap: 8px; }
+      .metric { min-height: 93px; padding: 12px; }
+      .metric-value { font-size: 22px; }
+      .verify-preview { gap: 10px; padding: 12px; }
+      .verify-emblem { width: 39px; height: 39px; flex-basis: 39px; }
+      .page-heading { gap: 8px; }
+      .page-heading > .button { min-height: 34px; padding: 0 9px; font-size: 11px; }
+      .page-heading > div { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <button class="mobile-menu-backdrop" id="mobileMenuBackdrop" type="button" aria-label="Menü schließen" tabindex="-1" hidden></button>
+    <aside class="sidebar" aria-label="Hauptnavigation">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">P</div>
+        <div class="brand-copy">
+          <div class="brand-name">Product Bot</div>
+          <div class="brand-caption">SERVER CONTROL</div>
+        </div>
+      </div>
+      <div class="side-label">Workspace</div>
+      <nav class="nav" id="primaryNavigation">
+        <button class="nav-button active" data-page="overview" aria-label="Übersicht" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Übersicht</span></button>
+        <button class="nav-button" data-page="verification" aria-label="Verifizierung"><span class="nav-icon" aria-hidden="true">◈</span><span class="nav-label">Verifizierung</span></button>
+        <button class="nav-button" data-page="tickets" aria-label="Ticketsystem"><span class="nav-icon" aria-hidden="true">▤</span><span class="nav-label">Ticketsystem</span><span class="nav-count" id="ticketNavCount">—</span></button>
+        <button class="nav-button" data-page="applications" aria-label="Bewerbungen"><span class="nav-icon" aria-hidden="true">✉</span><span class="nav-label">Bewerbungen</span></button>
+      </nav>
+      <div class="side-label" style="margin-top:24px">Konfiguration</div>
+      <nav class="nav">
+        <button class="nav-button" data-page="modules" aria-label="54 Discord-Module"><span class="nav-icon" aria-hidden="true">⌘</span><span class="nav-label">54 Discord-Module</span><span class="nav-count" aria-hidden="true">54</span></button>
+        <button class="nav-button" data-page="premium" aria-label="Premium"><span class="nav-icon" aria-hidden="true">✦</span><span class="nav-label">Premium</span></button>
+        <button class="nav-button" data-page="settings" aria-label="Einstellungen"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Einstellungen</span></button>
+        <button class="nav-button" data-page="admin" id="adminNav" aria-label="Admin" hidden><span class="nav-icon" aria-hidden="true">⌑</span><span class="nav-label">Admin</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="server-card">
+          <div class="server-label">Aktueller Server</div>
+          <button class="server-select" type="button" id="serverSelect"><span class="server-name" id="sidebarServerName">Nicht verbunden</span><span aria-hidden="true">⌄</span></button>
+          <div class="server-status" id="sidebarBotStatus"><span class="status-dot"></span> Einrichtung nötig</div>
+        </div>
+        <button class="nav-button" id="helpButton" aria-label="Hilfe & Support"><span class="nav-icon" aria-hidden="true">?</span><span class="nav-label">Hilfe & Support</span></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-leading">
+          <button class="icon-button mobile-menu" id="mobileMenuButton" type="button" aria-label="Navigation öffnen" aria-controls="primaryNavigation" aria-expanded="false">☰</button>
+          <div class="breadcrumb"><span id="headerServerName">Discord-Server auswählen</span> <span aria-hidden="true"> / </span> <strong id="breadcrumbCurrent">Übersicht</strong></div>
+        </div>
+        <div class="top-actions">
+          <select class="select guild-select" id="guildSelect" aria-label="Discord-Server auswählen" disabled><option>Mit Discord verbinden</option></select>
+          <a class="button small" id="inviteButton" href="#" target="_blank" rel="noopener noreferrer" hidden>Bot einladen</a>
+          <button class="button primary small" id="authButton">Mit Discord anmelden</button>
+          <button class="button small" id="logoutButton" hidden>Abmelden</button>
+        </div>
+      </header>
+      <div class="content">
+        <div class="hint-box setup-notice" id="setupNotice"><strong>Einrichtung erforderlich</strong>Für echte Discord-Funktionen musst du zuerst die kostenlose GitHub-Pages-Website und den Cloudflare-Worker konfigurieren. Melde dich anschließend mit Discord an.</div>
+        <section class="page active" id="page-overview">
+          <div class="page-heading">
+            <div><div class="eyebrow">Discord-Server</div><h1>Server-Übersicht</h1><p class="subtitle">Echte Serverdaten, Verifizierung, Tickets und Bewerbungen.</p></div>
+            <button class="button" data-go="settings">⚙ <span>Einstellungen</span></button>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="metric-label">Mitglieder <span class="metric-icon">♙</span></div><div class="metric-value" id="memberMetric">—</div></div>
+            <div class="metric"><div class="metric-label">Verifiziert <span class="metric-icon">✓</span></div><div class="metric-value" id="verifiedMetric">—</div></div>
+            <div class="metric"><div class="metric-label">Offene Tickets <span class="metric-icon">▤</span></div><div class="metric-value" id="ticketMetric">—</div></div>
+            <div class="metric"><div class="metric-label">Aktive Module <span class="metric-icon">⌘</span></div><div class="metric-value" id="enabledMetric">— <span class="metric-note">von 54</span></div></div>
+          </div>
+          <div class="overview-grid">
+            <div>
+              <article class="card">
+                <div class="card-head"><div><h2 class="card-title">Verifizierungs-Panel</h2><p class="card-caption">Dein Willkommens- und Sicherheitsbereich</p></div><span class="badge neutral" id="verificationStatusBadge">Nicht eingerichtet</span></div>
+                <div class="verify-preview">
+                  <div class="verify-emblem" aria-hidden="true">✓</div>
+                  <div><h3 id="overviewVerifyTitle">Willkommen auf deinem Server!</h3><p id="overviewVerifyMessage">Bestätige kurz, dass du ein echter Mensch bist.</p></div>
+                  <button class="button primary small preview-button" id="publishVerifyOverview">✓ Panel senden</button>
+                </div>
+                <div class="form-actions"><button class="button small" data-go="verification">Panel konfigurieren →</button></div>
+              </article>
+              <article class="card section-gap">
+                <div class="card-head"><div><h2 class="card-title">Letzte Aktivitäten</h2><p class="card-caption">Verifizierungen und Ticket-Aktionen</p></div></div>
+                <div class="empty-state" id="activityList">Melde dich an und wähle einen Server, um echte Aktivitäten zu laden.</div>
+              </article>
+            </div>
+            <div>
+              <article class="card">
+                <div class="card-head"><div><h2 class="card-title">Tickets im Überblick</h2><p class="card-caption">Live-Zähler deines Discord-Servers</p></div><span class="badge purple" id="ticketCountBadge">Server auswählen</span></div>
+                <div class="ticket-stat"><div><strong id="openTicketCount">—</strong><span>Tickets offen</span></div></div>
+                <div class="option-list">
+                  <div class="option-row"><span class="option-name">Verifizierungs-Panel</span><span class="badge neutral" id="verifyPanelState">Nicht gesendet</span></div>
+                  <div class="option-row"><span class="option-name">Ticket-Panel</span><span class="badge purple" id="ticketPanelState">Nicht gesendet</span></div>
+                  <div class="option-row"><span class="option-name">Ticket-Kategorie</span><span class="badge neutral" id="ticketCategoryState">Nicht eingerichtet</span></div>
+                  <div class="option-row"><span class="option-name">Support-Rolle</span><span class="badge neutral" id="supportRoleState">Nicht eingerichtet</span></div>
+                </div>
+                <div class="form-actions"><button class="button small" data-go="tickets">Tickets verwalten →</button></div>
+              </article>
+              <article class="card section-gap">
+                <div class="card-head"><div><h2 class="card-title">Bot-Status</h2><p class="card-caption">Installation und Interaktionen</p></div><span class="badge neutral" id="overviewBotBadge">Nicht verbunden</span></div>
+                <div class="settings-list">
+                  <div class="settings-row"><div><strong>Discord-Verbindung</strong><span id="connectionSummary">Noch nicht eingerichtet</span></div><span class="badge neutral" id="connectionBadge">Offline</span></div>
+                  <div class="settings-row"><div><strong>Bot-Installation</strong><span id="installSummary">Server noch nicht ausgewählt</span></div><span class="badge neutral" id="installBadge">—</span></div>
+                </div>
+                <div class="hint-box" style="margin-top:13px"><strong>Discord-Interaktionen</strong>Verifizierung, private Tickets und Bewerbungsformulare funktionieren, sobald der Bot eingeladen und die Panels eingerichtet sind.</div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-verification">
+          <div class="page-heading"><div><div class="eyebrow">Sicherheit & Zugang</div><h1>Verifizierung</h1><p class="subtitle">Konfiguriere das Verifizierungs-Panel für deinen Discord-Server.</p><span class="save-state" id="verificationSaveState" role="status" aria-live="polite">Gespeichert</span></div><button class="button primary" id="saveVerify">Einstellungen speichern</button></div>
+          <div class="two-column">
+            <article class="card">
+              <div class="card-head"><div><h2 class="card-title">Verifizierungs-Panel gestalten</h2><p class="card-caption">Diese Nachricht sehen neue Mitglieder im Verifizierungskanal.</p></div><span class="badge neutral" id="verificationConfigState">Server auswählen</span></div>
+              <div class="field"><label for="verifyTitle">Titel <span class="badge purple">Premium-Design</span></label><input class="input premium-field" id="verifyTitle" value="Willkommen auf deinem Server!" maxlength="256" required></div>
+              <small class="character-count" id="verifyTitleCount" aria-live="polite">0 / 256</small>
+              <div class="field"><label for="verifyMessage">Nachricht</label><textarea class="textarea premium-field" id="verifyMessage" maxlength="1500">Bestätige kurz, dass du ein echter Mensch bist.</textarea><small>Individuelle Panel-Texte und Farben sind Teil des Premium-Designs.</small></div>
+              <small class="character-count" id="verifyMessageCount" aria-live="polite">0 / 1500</small>
+              <div class="form-grid">
+                <div class="field"><label for="verifyChannel">Verifizierungskanal</label><select class="select" id="verifyChannel" disabled><option value="">Discord-Server auswählen</option></select></div>
+                <div class="field"><label for="verifiedRole">Rolle nach Verifizierung</label><select class="select" id="verifiedRole" disabled><option value="">Discord-Server auswählen</option></select></div>
+              </div>
+              <div class="field"><label for="verifyButtonText">Button-Text</label><input class="input premium-field" id="verifyButtonText" value="Jetzt verifizieren" maxlength="80" required></div>
+              <small class="character-count" id="verifyButtonTextCount" aria-live="polite">0 / 80</small>
+              <div class="field"><label for="verifyColor">Panel-Farbe <span class="badge purple">Premium</span></label><input class="input premium-field" id="verifyColor" type="color" value="#8b78ff" style="height:42px;padding:4px"></div>
+              <div class="field"><label for="verifyImageUrl">Panel-Bild-URL <span class="badge purple">Premium</span></label><input class="input premium-field" id="verifyImageUrl" type="url" inputmode="url" placeholder="https://example.com/bild.png"><small>Öffentliche HTTPS-Bildadresse; Datei-Uploads werden nicht unterstützt.</small></div>
+              <div class="form-actions"><button class="button" id="resetVerify">Zurücksetzen</button><button class="button" id="publishVerify">Panel in Discord senden</button><button class="button primary" id="saveVerifyBottom">Einstellungen speichern</button></div>
+            </article>
+            <div>
+              <article class="card">
+                <div class="card-head"><div><h2 class="card-title">Sicherheitsoptionen</h2><p class="card-caption">Zusätzliche Schutzmaßnahmen</p></div></div>
+                <div class="hint-box"><strong>Echte Discord-Aktion</strong>Beim Klick auf den Button erhält das Mitglied die konfigurierte Rolle. Dafür benötigt der Bot „Rollen verwalten“ und seine Bot-Rolle muss oberhalb der Zielrolle stehen.</div>
+              </article>
+              <article class="card section-gap">
+                <div class="card-head"><div><h2 class="card-title">Vorschau</h2><p class="card-caption">So erscheint dein Panel</p></div></div>
+                <div class="ticket-preview">
+                  <div class="ticket-preview-top"><div class="ticket-preview-icon">✓</div><div><div class="ticket-preview-title" id="verifyPreviewTitle">Willkommen auf deinem Server!</div><div class="ticket-preview-subtitle"><span class="preview-server-name">Discord-Server</span> · Verifizierung</div></div></div>
+                  <div class="ticket-preview-body" id="verifyPreviewMessage">Bestätige kurz, dass du ein echter Mensch bist.</div>
+                  <img class="panel-preview-image" id="verifyPreviewImage" alt="Panel-Bild" hidden>
+                  <button class="button primary small" id="verifyPreviewButton">Jetzt verifizieren</button>
+                </div>
+                <p style="margin:12px 0 0;color:var(--muted);font-size:10px">Die Vorschau ändert noch keine Discord-Nachricht. Veröffentliche das Panel mit „Panel in Discord senden“.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-tickets">
+          <div class="page-heading"><div><div class="eyebrow">Community Support</div><h1>Ticketsystem</h1><p class="subtitle">Erstelle ein Support-Panel und verwalte deine Ticket-Kategorien.</p><span class="save-state" id="ticketsSaveState" role="status" aria-live="polite">Gespeichert</span></div><button class="button primary" id="saveTickets">Änderungen speichern</button></div>
+          <div class="two-column">
+            <article class="card">
+              <div class="card-head"><div><h2 class="card-title">Ticket-Panel einrichten</h2><p class="card-caption">Konfiguriere echte Discord-Kanäle und Rollen.</p></div><span class="badge neutral" id="ticketSetupBadge">Server auswählen</span></div>
+              <div class="field"><label for="ticketTitle">Panel-Titel <span class="badge purple">Premium-Design</span></label><input class="input premium-field" id="ticketTitle" value="Wie können wir dir helfen?" maxlength="256" required></div>
+              <small class="character-count" id="ticketTitleCount" aria-live="polite">0 / 256</small>
+              <div class="field"><label for="ticketMessage">Beschreibung</label><textarea class="textarea premium-field" id="ticketMessage" maxlength="1500">Erstelle ein Ticket, unser Team hilft dir gerne.</textarea></div>
+              <small class="character-count" id="ticketMessageCount" aria-live="polite">0 / 1500</small>
+              <div class="form-grid">
+                <div class="field"><label for="ticketChannel">Panel-Kanal</label><select class="select" id="ticketChannel" disabled><option value="">Server auswählen</option></select></div>
+                <div class="field"><label for="ticketCategory">Ticket-Kategorie</label><select class="select" id="ticketCategory" disabled><option value="">Server auswählen</option></select></div>
+              </div>
+              <div class="field"><label for="supportRole">Support-Rolle</label><select class="select" id="supportRole" disabled><option value="">Keine Rolle</option></select></div>
+                <div class="field"><label for="ticketButtonText">Button-Text <span class="badge purple">Premium-Design</span></label><input class="input premium-field" id="ticketButtonText" value="＋ Ticket erstellen" maxlength="80"></div>
+                <small class="character-count" id="ticketButtonTextCount" aria-live="polite">0 / 80</small>
+                <div class="field"><label for="ticketColor">Panel-Farbe <span class="badge purple">Premium</span></label><input class="input premium-field" id="ticketColor" type="color" value="#8b78ff" style="height:42px;padding:4px"></div>
+              <div class="field"><label for="ticketImageUrl">Panel-Bild-URL <span class="badge purple">Premium</span></label><input class="input premium-field" id="ticketImageUrl" type="url" inputmode="url" placeholder="https://example.com/bild.png"><small>Öffentliche HTTPS-Bildadresse; Datei-Uploads werden nicht unterstützt.</small></div>
+              <div class="form-actions"><button class="button" id="publishTicketPanel">Panel in Discord senden</button><button class="button primary" id="saveTicketsBottom">Einstellungen speichern</button></div>
+            </article>
+            <div>
+              <article class="card">
+                <div class="card-head"><div><h2 class="card-title">Panel-Vorschau</h2><p class="card-caption">So sehen Mitglieder deinen Support</p></div></div>
+                <div class="ticket-preview">
+                  <div class="ticket-preview-top"><div class="ticket-preview-icon">▤</div><div><div class="ticket-preview-title" id="ticketPreviewTitle">Wie können wir dir helfen?</div><div class="ticket-preview-subtitle"><span class="preview-server-name">Discord-Server</span> · Support</div></div></div>
+                  <div class="ticket-preview-body" id="ticketPreviewMessage">Erstelle ein Ticket, unser Team hilft dir gerne.</div>
+                  <img class="panel-preview-image" id="ticketPreviewImage" alt="Panel-Bild" hidden>
+                  <button class="button primary small" id="ticketPreviewButton" disabled>＋ Ticket erstellen</button>
+                </div>
+                <p style="margin:12px 0 0;color:var(--muted);font-size:10px">Die Vorschau erstellt kein Ticket. Nutze „Panel in Discord senden“, um das echte Panel zu veröffentlichen.</p>
+              </article>
+              <article class="card section-gap"><div class="hint-box"><strong>Ticket- und Support-Funktionen</strong>Private Tickets mit Support-Rollen, konfigurierbarer Kategorie und Team-Ping. Wenn aktiviert, stehen Dringlich-Markierung und Transkript-Speicherung im D1 plus Ausgabe im Ticketkanal zur Verfügung.</div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-applications">
+          <div class="page-heading"><div><div class="eyebrow">Community & Recruiting</div><h1>Bewerbungs-Panel</h1><p class="subtitle">Veröffentliche ein Formular, sammle Antworten per Discord-Modal und leite sie an dein Team weiter.</p><span class="save-state" id="applicationsSaveState" role="status" aria-live="polite">Gespeichert</span></div><button class="button primary" id="saveApplications">Änderungen speichern</button></div>
+          <div class="two-column">
+            <article class="card">
+              <div class="card-head"><div><h2 class="card-title">Bewerbungsformular einrichten</h2><p class="card-caption">Aktiviere das Modul unter Discord-Module. Drei Veröffentlichungen pro Server sind kostenlos.</p></div><span class="badge neutral" id="applicationUsage">Server auswählen</span></div>
+              <div class="form-grid">
+                <div class="field"><label for="applicationChannel">Panel-Kanal</label><select class="select" id="applicationChannel" disabled><option value="">Server auswählen</option></select></div>
+                <div class="field"><label for="applicationReviewChannel">Prüfkanal</label><select class="select" id="applicationReviewChannel" disabled><option value="">Server auswählen</option></select><small>Wähle für Bewerbungsdaten am besten einen privaten Team-Kanal.</small></div>
+              </div>
+              <div class="field"><label for="applicationTitle">Panel-Titel <span class="badge purple">Premium-Design</span></label><input class="input premium-field" id="applicationTitle" value="Bewirb dich bei uns" maxlength="256" required></div>
+              <small class="character-count" id="applicationTitleCount" aria-live="polite">0 / 256</small>
+              <div class="field"><label for="applicationMessage">Panel-Beschreibung <span class="badge purple">Premium-Design</span></label><textarea class="textarea premium-field" id="applicationMessage" maxlength="1500">Fülle das Formular aus, um dich bei unserem Team zu bewerben.</textarea></div>
+              <small class="character-count" id="applicationMessageCount" aria-live="polite">0 / 1500</small>
+              <div class="field"><label for="applicationButtonText">Button-Text <span class="badge purple">Premium-Design</span></label><input class="input premium-field" id="applicationButtonText" value="Bewerbung starten" maxlength="80" required></div>
+              <small class="character-count" id="applicationButtonTextCount" aria-live="polite">0 / 80</small>
+              <div class="field"><label for="applicationQuestions">Formularfragen (eine pro Zeile, maximal 5)</label><textarea class="textarea" id="applicationQuestions" rows="5" maxlength="229" placeholder="Warum möchtest du beitreten?&#10;Welche Erfahrung bringst du mit?&#10;Erzähl uns etwas über dich."></textarea><small>Jede Frage wird als verpflichtendes Textfeld im Discord-Formular angezeigt; maximal 45 Zeichen pro Frage.</small><div class="field-error" id="applicationQuestionsError" aria-live="polite"></div><ol class="question-preview" id="applicationQuestionsPreview" aria-label="Vorschau der Bewerbungsfragen"></ol></div>
+              <div class="field"><label for="applicationColor">Panel-Farbe <span class="badge purple">Premium</span></label><input class="input premium-field" id="applicationColor" type="color" value="#8b78ff" style="height:42px;padding:4px"></div>
+              <div class="field"><label for="applicationImageUrl">Panel-Bild-URL <span class="badge purple">Premium</span></label><input class="input premium-field" id="applicationImageUrl" type="url" inputmode="url" placeholder="https://example.com/bild.png"><small>Öffentliche HTTPS-Bildadresse; Datei-Uploads werden nicht unterstützt.</small></div>
+              <div class="form-actions"><button class="button" id="publishApplicationPanel">Bewerbungs-Panel veröffentlichen</button><button class="button primary" id="saveApplicationsBottom">Einstellungen speichern</button></div>
+            </article>
+            <div>
+              <article class="card">
+                <div class="card-head"><div><h2 class="card-title">Panel-Vorschau</h2><p class="card-caption">Mitglieder erhalten beim Klick ein Discord-Formular.</p></div><span class="badge neutral" id="applicationPanelState">Nicht gesendet</span></div>
+                <div class="ticket-preview">
+                  <div class="ticket-preview-top"><div class="ticket-preview-icon">✉</div><div><div class="ticket-preview-title" id="applicationPreviewTitle">Bewirb dich bei uns</div><div class="ticket-preview-subtitle"><span class="preview-server-name">Discord-Server</span> · Bewerbung</div></div></div>
+                  <div class="ticket-preview-body" id="applicationPreviewMessage">Fülle das Formular aus, um dich bei unserem Team zu bewerben.</div>
+                  <img class="panel-preview-image" id="applicationPreviewImage" alt="Panel-Bild" hidden>
+                  <button class="button primary small" id="applicationPreviewButton" disabled>Bewerbung starten</button>
+                </div>
+              </article>
+              <article class="card section-gap"><div class="hint-box"><strong>So funktioniert die Bewerbung</strong>Die Antworten werden in der Datenbank gespeichert und im ausgewählten Prüfkanal gepostet. Das Modul speichert keine Discord-Dateianhänge. Nach drei veröffentlichten Panels ist Product Bot Premium für weitere Veröffentlichungen erforderlich.</div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-modules">
+          <div class="page-heading"><div><div class="eyebrow">Dein Server, deine Regeln</div><h1>Discord-Module</h1><p class="subtitle" id="moduleAvailability">54 Module · 30 verfügbar · 24 noch geplant</p></div><div><span class="badge purple" id="moduleCountBadge">0 von 54 aktiv</span><button class="button small" id="enableAvailableModules" style="margin-left:7px" disabled>Verfügbare aktivieren</button><button class="button small" id="syncCommands" style="margin-left:7px" disabled>Discord-Befehle aktualisieren</button></div></div>
+          <div class="hint-box setup-notice"><strong>Module einschalten und konfigurieren</strong>Nutze den Schalter zum Aktivieren und „Konfigurieren“, um direkt zu den passenden Panel-, Server- oder Befehlsoptionen zu gelangen. Änderungen werden erst nach dem Speichern an den Server übertragen. Anti-Link kann alle Links löschen, wenn keine erlaubten Domains eingetragen sind; geplante Module bleiben gesperrt.</div>
+          <div class="module-toolbar">
+            <div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input class="input" id="moduleSearch" type="search" placeholder="Module suchen…" aria-label="Module suchen"></div>
+            <div class="module-filters" role="group" aria-label="Module filtern">
+              <button class="filter-button active" data-filter="all" aria-pressed="true">Alle 54</button>
+              <button class="filter-button" data-filter="enabled" aria-pressed="false">Aktiv</button>
+              <button class="filter-button" data-filter="disabled" aria-pressed="false">Inaktiv</button>
+            </div>
+          </div>
+          <div class="module-groups" id="moduleGroups"></div>
+        </section>
+
+        <section class="page" id="page-premium">
+          <div class="page-heading"><div><div class="eyebrow">Individuell für deinen Server</div><h1>Product Bot Premium</h1><p class="subtitle">Custom Design freischalten und deine Panels persönlich gestalten.</p></div><span class="badge purple" id="premiumStatus">Noch kein Abo</span></div>
+          <div class="hint-box setup-notice"><strong>Zwei monatliche Tarife</strong>Custom Design kostet 2,99 $ USD pro Monat. Product Bot Premium kostet 9,99 $ USD pro Monat und enthält Custom Design plus zusätzliche Discord-Befehle.</div>
+          <div class="premium-grid">
+            <article class="card premium-card featured">
+              <div class="card-head"><div><h2 class="card-title">Custom Design</h2><p class="card-caption">Monatsabo oder 30 Tage einmalig</p></div><span class="badge purple">Design</span></div>
+              <div class="premium-price">2,99 $ <small>/ Monat</small></div>
+              <ul class="premium-features"><li>Eigene Verifizierungs- und Ticket-Panel-Texte</li><li>Individuelle Panel-Farben</li><li>Premium-Status für den ausgewählten Server</li><li>Zahlung per Karte oder PayPal, sofern im Checkout angeboten</li></ul>
+              <button class="button primary" id="subscribeDesign">Custom Design abonnieren</button>
+              <button class="button small" id="buyOneTime">30 Tage einmalig</button>
+            </article>
+            <article class="card premium-card featured">
+              <div class="card-head"><div><h2 class="card-title">Product Bot Premium</h2><p class="card-caption">Alle Custom-Design-Funktionen plus Premium-Module</p></div><span class="badge purple">Premium</span></div>
+              <div class="premium-price">9,99 $ <small>/ Monat</small></div>
+              <ul class="premium-features"><li>Alles aus Custom Design</li><li>/productstats und /serverinfo</li><li>/communitypoll mit bis zu fünf Antworten</li><li>/announce für gestaltete Mitteilungen</li><li>/userinfo und /avatar für Mitglieder</li></ul>
+              <button class="button primary" id="subscribePremium">Premium abonnieren</button>
+              <button class="button small" id="manageSubscription" hidden style="margin-left:7px">Abo verwalten / kündigen</button>
+            </article>
+          </div>
+          <article class="card section-gap"><div class="card-head"><div><h2 class="card-title">Abo verwalten</h2><p class="card-caption">Sicherer Checkout und Verwaltung über Stripe</p></div></div><p class="subtitle">Monatsabos akzeptieren Karte und PayPal, sofern diese Methoden für dein Stripe-Konto freigeschaltet sind. Die einmalige Custom-Design-Zahlung läuft über Karten-Checkout. Girocard wird online nicht zuverlässig unterstützt und kann daher nicht garantiert werden. Kartendaten werden niemals in der App gespeichert.</p><button class="button small" id="manageSubscriptionPage" hidden style="margin-top:12px">Monatsabo verwalten / kündigen</button></article>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="page-heading"><div><div class="eyebrow">Workspace verwalten</div><h1>Einstellungen</h1><p class="subtitle">Server- und Protokolloptionen für den verbundenen Discord-Server.</p><span class="save-state" id="settingsSaveState" role="status" aria-live="polite">Gespeichert</span></div><button class="button primary" id="saveSettings">Änderungen speichern</button></div>
+          <div class="two-column">
+            <article class="card">
+              <div class="card-head"><div><h2 class="card-title">Server-Einstellungen</h2><p class="card-caption">Allgemeine Informationen zu deinem Workspace</p></div><span class="badge neutral" id="settingsServerBadge">Nicht verbunden</span></div>
+              <div class="field"><label for="serverNameInput">Discord-Server</label><input class="input" id="serverNameInput" value="Kein Server ausgewählt" readonly></div>
+              <div class="form-grid">
+                <div class="field"><label for="languageSelect">Sprache</label><select class="select" id="languageSelect"><option>Deutsch</option><option>English</option></select></div>
+                <div class="field"><label for="timezoneSelect">Zeitzone</label><select class="select" id="timezoneSelect"><option>Europe/Berlin</option><option>UTC</option></select></div>
+              </div>
+              <div class="field"><label for="logChannel">Protokoll-Kanal</label><select class="select" id="logChannel"><option value="">Kein Kanal</option></select><small>Ticket- und Verifizierungsereignisse können in diesen Kanal geschrieben werden.</small></div>
+              <div class="field"><label for="welcomeChannel">Willkommenskanal</label><select class="select" id="welcomeChannel"><option value="">Kanal auswählen</option></select></div>
+              <div class="field"><label for="welcomeMessage">Willkommensnachricht</label><textarea class="textarea" id="welcomeMessage" maxlength="1800"></textarea><small>Platzhalter: {user}, {username}, {server}.</small><div class="text-preview"><span class="text-preview-label">Beispielvorschau</span><span id="welcomeMessagePreview"></span></div></div>
+              <div class="field"><label for="goodbyeChannel">Abschiedskanal</label><select class="select" id="goodbyeChannel"><option value="">Kanal auswählen</option></select></div>
+              <div class="field"><label for="goodbyeMessage">Abschiedsnachricht</label><textarea class="textarea" id="goodbyeMessage" maxlength="1800"></textarea><small>Platzhalter: {user}, {username}, {server}.</small><div class="text-preview"><span class="text-preview-label">Beispielvorschau</span><span id="goodbyeMessagePreview"></span></div></div>
+              <div class="field"><label for="autoRoleIds">Automatische Rollen</label><select class="select" id="autoRoleIds" multiple size="5" aria-label="Rollen beim Beitritt automatisch vergeben"></select><small>Strg/⌘ gedrückt halten, um mehrere Rollen auszuwählen.</small></div>
+              <div class="form-grid">
+                <div class="field"><label for="antiSpamLimit">Anti-Spam: Nachrichten-Limit</label><input class="input" type="number" id="antiSpamLimit" min="2" max="20" value="5"></div>
+                <div class="field"><label for="antiSpamWindow">Anti-Spam: Zeitfenster (Sek.)</label><input class="input" type="number" id="antiSpamWindow" min="2" max="60" value="8"></div>
+              </div>
+              <div class="field"><label for="antiSpamIgnoredRoleIds">Anti-Spam-Ausnahmerollen <span class="badge purple">Premium</span></label><select class="select premium-field premium-option" id="antiSpamIgnoredRoleIds" multiple size="4" aria-label="Anti-Spam-Ausnahmerollen"></select></div>
+              <div class="field"><label for="allowedLinkDomains">Erlaubte Link-Domains</label><textarea class="textarea" id="allowedLinkDomains" placeholder="discord.com&#10;example.com"></textarea><small>Eine Domain pro Zeile. Leer bedeutet: alle Links werden entfernt.</small></div>
+              <div class="field"><label for="blockedWords">Wortfilter-Begriffe</label><textarea class="textarea" id="blockedWords" placeholder="Begriff pro Zeile"></textarea><small>Maximal 100 Begriffe; Groß-/Kleinschreibung wird ignoriert.</small></div>
+              <div class="field"><label for="minimumAccountAge">Mindestalter eines Accounts (Tage)</label><input class="input" type="number" id="minimumAccountAge" min="1" max="365" value="7"><small>Jüngere Konten werden im Protokollkanal gemeldet, nicht automatisch gekickt.</small></div>
+              <div class="form-grid">
+                <div class="field"><label for="autoModMaxMentions">AutoMod: Erwähnungs-Limit</label><input class="input" type="number" id="autoModMaxMentions" min="2" max="20" value="5"></div>
+                <div class="field"><label for="antiRaidJoinLimit">Anti-Raid: Beitritte pro Zeitfenster</label><input class="input" type="number" id="antiRaidJoinLimit" min="3" max="50" value="8"></div>
+              </div>
+              <div class="field"><label for="antiRaidWindow">Anti-Raid: Zeitfenster (Sek.)</label><input class="input" type="number" id="antiRaidWindow" min="5" max="120" value="20"></div>
+              <div class="field"><label class="inline-check" for="autoModBlockInvites"><input type="checkbox" id="autoModBlockInvites" checked> Discord-Einladungslinks blockieren</label></div>
+            </article>
+            <div>
+              <article class="card">
+                <div class="card-head"><div><h2 class="card-title">Bot-Verbindung</h2><p class="card-caption">Status deiner Discord-Integration</p></div><span class="badge neutral" id="settingsConnectionBadge">Nicht verbunden</span></div>
+                <div class="settings-list">
+                  <div class="settings-row"><div><strong>Verbindungsstatus</strong><span id="settingsConnectionSummary">Noch nicht eingerichtet</span></div></div>
+                  <div class="settings-row"><div><strong>Bot-Installation</strong><span id="settingsInstallSummary">Server noch nicht ausgewählt</span></div></div>
+                  <div class="settings-row"><div><strong>Gateway-Prozess</strong><span id="gatewayRuntimeSummary">Noch kein Live-Status</span></div><span class="badge neutral" id="gatewayRuntimeBadge">Offline</span></div>
+                </div>
+                <a class="button small" id="settingsInviteButton" href="#" target="_blank" rel="noopener noreferrer" hidden style="margin-top:13px">Bot zum Server hinzufügen</a>
+              </article>
+              <article class="card section-gap">
+                <div class="card-head"><div><h2 class="card-title">Datenschutz</h2><p class="card-caption">Sichere Kontoverwaltung</p></div></div>
+                <div class="hint-box"><strong>Keine Passwörter erforderlich</strong>Die Anmeldung verwendet Discord OAuth. Bot- und Zahlungsgeheimnisse bleiben im Cloudflare-Worker.</div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-admin">
+          <div class="page-heading"><div><div class="eyebrow">Nur freigeschaltete Admins</div><h1>Product Bot Admin</h1><p class="subtitle">Servernutzung, bezahlte Käufe und auditierte Premium-Geschenke.</p></div><button class="button" id="refreshAdmin">Daten aktualisieren</button></div>
+          <div class="hint-box"><strong>Privater Admin-Bereich</strong>Nur Discord-User-IDs aus der serverseitigen Worker-Variable ADMIN_DISCORD_USER_IDS können diese Daten laden oder Premium vergeben. Die Empfängersuche liefert exakte Namens-Treffer innerhalb des ausgewählten Bots-Servers.</div>
+          <article class="card section-gap">
+            <div class="card-head"><div><h2 class="card-title">30 Tage Premium verschenken</h2><p class="card-caption">Account-Guthaben wirkt für den Empfänger in seinen verwalteten Servern.</p></div><span class="badge purple">Premium · 30 Tage</span></div>
+            <div class="form-grid">
+              <div class="field"><label for="adminGuildSelect">Server für Mitgliedersuche</label><select class="select" id="adminGuildSelect"><option value="">Server auswählen</option></select></div>
+              <div class="field"><label for="adminUsername">Discord-Name</label><input class="input" id="adminUsername" maxlength="32" placeholder="@discordname"></div>
+            </div>
+            <div class="form-grid">
+              <div class="field"><label for="adminUserResults">Exakter Treffer</label><select class="select" id="adminUserResults" disabled><option value="">Noch keine Suche</option></select></div>
+              <div class="field"><label for="adminGiftReason">Interne Begründung (optional)</label><input class="input" id="adminGiftReason" maxlength="300" placeholder="z. B. Support-Dankeschön"></div>
+            </div>
+            <div class="form-actions"><button class="button" id="searchAdminUser">Namen suchen</button><button class="button primary" id="grantAdminGift" disabled>Premium 30 Tage geben</button></div>
+          </article>
+          <article class="card section-gap"><div class="card-head"><div><h2 class="card-title">Servernutzung</h2><p class="card-caption">Konfigurierte Server, aktive Module, Gateway und letzte Bot-Aktivität.</p></div></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Server</th><th>Server-ID</th><th>Module</th><th>Gateway</th><th>Letzte Aktivität</th></tr></thead><tbody id="adminServers"><tr><td colspan="5">Admin-Daten laden …</td></tr></tbody></table></div></article>
+          <article class="card section-gap"><div class="card-head"><div><h2 class="card-title">Käufe und Zahlungen</h2><p class="card-caption">Erfolgreiche Stripe-Checkout-Zahlungen und bezahlte Verlängerungen.</p></div></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Datum</th><th>Server-ID</th><th>Käufer-ID</th><th>Tarif</th><th>Betrag</th><th>Ereignis</th></tr></thead><tbody id="adminPurchases"><tr><td colspan="6">Noch keine erfassten Käufe.</td></tr></tbody></table></div></article>
+          <article class="card section-gap"><div class="card-head"><div><h2 class="card-title">Premium-Geschenk-Protokoll</h2><p class="card-caption">Admin, Empfänger, Ablauf und Begründung.</p></div></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Datum</th><th>Admin-ID</th><th>Empfänger-ID</th><th>Gültig bis</th><th>Begründung</th></tr></thead><tbody id="adminGifts"><tr><td colspan="5">Noch keine Geschenke.</td></tr></tbody></table></div></article>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="api-config.js"></script>
+  <script>
+    const moduleGroups = [
+      { name: "Sicherheit & Moderation", icon: "◈", modules: [
+        ["AutoMod", "Filtert unerwünschte Nachrichten automatisch", true], ["Anti-Spam", "Erkennt Spam und Nachrichtenfluten", true],
+        ["Anti-Raid", "Meldet schnelle Beitrittswellen im Protokollkanal", true], ["Raid-Modus", "Blockiert Einladungslinks nach einer erkannten Beitrittswelle fünf Minuten lang", true], ["Anti-Link", "Kontrolliert geteilte Links", false],
+        ["Wortfilter", "Blockiert festgelegte Begriffe", true], ["Verifizierung", "Prüft neue Mitglieder", true],
+        ["Account-Alter-Check", "Erkennt sehr neue Accounts", false],
+        ["Warnsystem", "Verwaltet Verwarnungen für Mitglieder", true], ["Moderations-Logs", "Protokolliert Moderationsaktionen", true]
+      ]},
+      { name: "Mitglieder & Community", icon: "♙", modules: [
+        ["Willkommensnachrichten", "Begrüßt neue Mitglieder", true], ["Abschiedsnachrichten", "Verabschiedet austretende Mitglieder", false],
+        ["Auto-Rollen", "Weist Rollen automatisch zu", true], ["Reaktionsrollen", "Rollen per Reaktion vergeben", true],
+        ["Level-System", "Belohnt aktive Mitglieder", true], ["Rangliste", "Zeigt die aktivsten Mitglieder", false],
+        ["Geburtstage", "Feiert Geburtstage im Server", false], ["Mitgliedszähler", "Zeigt aktuelle Serverstatistiken", true],
+        ["Vorschlagsbox", "Sammelt Community-Ideen", false], ["Umfragen", "Discord-Befehl /communitypoll mit bis zu fünf Antworten (Premium)", false],
+        ["Mitglieder-Informationen", "Zeigt Beitrittszeit, Kontoalter und Rollen mit /userinfo (Premium)", false],
+        ["Avatar-Anzeige", "Zeigt deinen oder eines Mitglieds Avatar mit /avatar (Premium)", false]
+      ]},
+      { name: "Tickets & Support", icon: "▤", modules: [
+        ["Ticket-Panel", "Öffentliches Panel zum Erstellen von Tickets", true], ["Ticket-Kategorien", "Erstellt Tickets in der gewählten Discord-Kategorie", true],
+        ["Bewerbungs-Panel", "Sammelt Bewerbungen per Discord-Formular und sendet sie an den Prüfkanal", false],
+        ["Ticket-Transkripte", "Speichert Ticketverläufe in D1 und im geschlossenen Ticket", false], ["Ticket-Bewertungen", "Sammelt Feedback zum Support", false],
+        ["Team-Pings", "Benachrichtigt das zuständige Team beim Öffnen", true], ["Inaktivitätserinnerung", "Erinnert an offene Supportfälle", false],
+        ["FAQ-Antworten", "Beantwortet häufige Fragen automatisch", false], ["Support-Statistiken", "Übersicht zu Antwort- und Lösungszeiten", false],
+        ["Prioritäts-Tickets", "Support-Team kann Tickets als dringend markieren", false], ["Ticket-Transkript-Export", "Exportiert abgeschlossene Ticketverläufe", false]
+      ]},
+      { name: "Automatisierung & Tools", icon: "⌘", modules: [
+        ["Benutzerdefinierte Befehle", "Eigene Slash-Befehle erstellen", true], ["Automatische Antworten", "Antwortet auf festgelegte Schlüsselwörter", false],
+        ["Nachrichtenplanung", "Plant Nachrichten im Voraus", false], ["Embed-Builder", "Gestaltet formatierte Nachrichten", true],
+        ["Erinnerungen", "Erstellt zeitgesteuerte Erinnerungen", false], ["Temporäre Kanäle", "Erstellt Sprachkanäle bei Bedarf", false],
+        ["Giveaways", "Veranstaltet Community-Gewinnspiele", true], ["Counting-Spiel", "Zählt gemeinsam im Textkanal", false],
+        ["Starboard", "Hebt beliebte Nachrichten hervor", true], ["Server-Backup", "Sichert ausgewählte Servereinstellungen", false]
+      ]},
+      { name: "Protokolle & Integrationen", icon: "⌁", modules: [
+        ["Nachrichten-Logs", "Protokolliert Änderungen und Löschungen", true], ["Voice-Logs", "Protokolliert Sprachkanal-Aktivitäten", false],
+        ["Rollen-Logs", "Erfasst Änderungen an Mitgliederrollen", false], ["Join-/Leave-Logs", "Protokolliert Beitritte und Austritte", true],
+        ["Twitch-Benachrichtigungen", "Meldet neue Twitch-Streams", false], ["YouTube-Benachrichtigungen", "Meldet neue YouTube-Videos", false],
+        ["RSS-Feeds", "Veröffentlicht Updates aus RSS-Quellen", false], ["GitHub-Benachrichtigungen", "Meldet neue Repository-Aktivitäten", false],
+        ["Server-Statistiken", "Discord-Befehl /productstats (Premium)", false], ["Ankündigungen", "Discord-Befehl /announce (Premium)", false],
+        ["Server-Informationen", "Server-Übersicht als Discord-Embed mit /serverinfo (Premium)", false]
+      ]}
+    ];
+    const enabledByDefault = new Set();
+    const implementedModules = new Set(["Verifizierung", "Ticket-Panel", "Bewerbungs-Panel", "Server-Statistiken", "Umfragen", "Ankündigungen", "Server-Informationen", "Mitglieder-Informationen", "Avatar-Anzeige", "Anti-Spam", "Anti-Link", "Wortfilter", "Account-Alter-Check", "Willkommensnachrichten", "Abschiedsnachrichten", "Auto-Rollen", "Nachrichten-Logs", "Voice-Logs", "Rollen-Logs", "Join-/Leave-Logs", "AutoMod", "Anti-Raid", "Warnsystem", "Raid-Modus", "Ticket-Kategorien", "Ticket-Transkripte", "Ticket-Transkript-Export", "Prioritäts-Tickets", "Team-Pings", "Moderations-Logs"]);
+    const premiumModules = new Set(["Server-Statistiken", "Umfragen", "Ankündigungen", "Server-Informationen", "Mitglieder-Informationen", "Avatar-Anzeige"]);
+    const moduleConfigurations = {
+      "Verifizierung": { page: "verification" },
+      "Ticket-Panel": { page: "tickets" },
+      "Ticket-Kategorien": { page: "tickets" },
+      "Ticket-Transkripte": { page: "tickets" },
+      "Ticket-Transkript-Export": { page: "tickets" },
+      "Prioritäts-Tickets": { page: "tickets" },
+      "Team-Pings": { page: "tickets", target: "#supportRole" },
+      "Bewerbungs-Panel": { page: "applications" },
+      AutoMod: { page: "settings", target: "#autoModMaxMentions" },
+      "Anti-Spam": { page: "settings", target: "#antiSpamLimit" },
+      "Anti-Raid": { page: "settings", target: "#antiRaidJoinLimit" },
+      "Raid-Modus": { page: "settings", target: "#antiRaidJoinLimit" },
+      "Anti-Link": { page: "settings", target: "#allowedLinkDomains" },
+      Wortfilter: { page: "settings", target: "#blockedWords" },
+      "Account-Alter-Check": { page: "settings", target: "#minimumAccountAge" },
+      "Willkommensnachrichten": { page: "settings", target: "#welcomeChannel" },
+      "Abschiedsnachrichten": { page: "settings", target: "#goodbyeChannel" },
+      "Auto-Rollen": { page: "settings", target: "#autoRoleIds" },
+      "Nachrichten-Logs": { page: "settings", target: "#logChannel" },
+      "Voice-Logs": { page: "settings", target: "#logChannel" },
+      "Rollen-Logs": { page: "settings", target: "#logChannel" },
+      "Join-/Leave-Logs": { page: "settings", target: "#logChannel" },
+      "Moderations-Logs": { page: "settings", target: "#logChannel" },
+      "Warnsystem": { command: "/warn und /warnings" },
+      "Server-Statistiken": { command: "/productstats" },
+      "Umfragen": { command: "/communitypoll — Frage und 2–5 Antwortmöglichkeiten beim Aufruf angeben" },
+      "Ankündigungen": { command: "/announce — Zielkanal, Titel und Nachricht beim Aufruf angeben" },
+      "Server-Informationen": { command: "/serverinfo" },
+      "Mitglieder-Informationen": { command: "/userinfo — Mitglied beim Aufruf auswählen" },
+      "Avatar-Anzeige": { command: "/avatar — optionales Mitglied beim Aufruf auswählen" },
+    };
+    const API_BASE = (window.PRODUCT_BOT_API_BASE || "").replace(/\/+$/, "");
+    const DISCORD_CLIENT_ID = String(window.PRODUCT_BOT_CLIENT_ID || "").trim();
+    const SESSION_KEY = "product_bot_session";
+    let sessionToken = sessionStorage.getItem(SESSION_KEY);
+    let selectedGuildId = localStorage.getItem("product_bot_guild") || "";
+    let apiOnline = false;
+    let configLoaded = false;
+    let premiumActive = false;
+    let premiumTier = false;
+    let monthlySubscription = false;
+    let applicationPanelUsage = null;
+    let botInstalled = false;
+    let activeFilter = "all";
+    let searchQuery = "";
+    let moduleSavePending = false;
+    let guildLoadSequence = 0;
+    let adminEnabled = false;
+    let adminUsers = [];
+    const savedFormSignatures = new Map();
+    const savingSections = new Set();
+    const failedFormStates = new Map();
+    const guildResourceControlIds = [
+      "verifyChannel", "verifiedRole", "ticketChannel", "ticketCategory", "supportRole", "logChannel",
+      "applicationChannel", "applicationReviewChannel", "welcomeChannel", "goodbyeChannel",
+      "antiSpamIgnoredRoleIds", "autoRoleIds",
+    ];
+    let toastTimer;
+
+    function clearGuildResources(placeholder) {
+      for (const id of guildResourceControlIds) {
+        const control = document.getElementById(id);
+        control.replaceChildren();
+        if (!control.multiple) control.add(new Option(placeholder, ""));
+        control.disabled = true;
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+    }
+
+    async function apiRequest(path, options = {}) {
+      if (!API_BASE || API_BASE.includes("YOUR-WORKER")) {
+        throw new Error("Cloudflare-Worker nicht konfiguriert. Setze zuerst die GitHub-Variable PRODUCT_BOT_API_URL.");
+      }
+      const headers = new Headers(options.headers || {});
+      if (options.body) headers.set("Content-Type", "application/json");
+      if (sessionToken) headers.set("Authorization", `Bearer ${sessionToken}`);
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      const text = await response.text();
+      let payload = {};
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          throw new Error(`Der Server hat eine ungültige Antwort geliefert (HTTP ${response.status}).`);
+        }
+      }
+      if (!response.ok) throw new Error(payload.error || `Anfrage fehlgeschlagen (HTTP ${response.status}).`);
+      return payload;
+    }
+
+    function showError(error) {
+      console.error(error);
+      showToast(error instanceof Error ? error.message : "Die Anfrage ist fehlgeschlagen.");
+    }
+
+    function setConnectionState(connected, message) {
+      const hasSelectedGuild = availableGuilds.some(guild => guild.id === selectedGuildId);
+      const stateLabel = !hasSelectedGuild ? "Nicht geprüft" : connected ? "Installiert" : "Bot fehlt";
+      const installSummary = !hasSelectedGuild ? "Server noch nicht ausgewählt" : connected ? "Bot ist auf dem ausgewählten Server installiert" : "Bot fehlt auf dem ausgewählten Server";
+      const badge = document.getElementById("connectionBadge");
+      const settingsBadge = document.getElementById("settingsConnectionBadge");
+      badge.textContent = stateLabel;
+      badge.className = connected ? "badge" : "badge neutral";
+      settingsBadge.textContent = stateLabel;
+      settingsBadge.className = connected ? "badge" : "badge neutral";
+      const overviewBadge = document.getElementById("overviewBotBadge");
+      overviewBadge.textContent = stateLabel;
+      overviewBadge.className = connected ? "badge" : "badge neutral";
+      const settingsServerBadge = document.getElementById("settingsServerBadge");
+      settingsServerBadge.textContent = stateLabel;
+      settingsServerBadge.className = connected ? "badge" : "badge neutral";
+      document.getElementById("connectionSummary").textContent = message;
+      document.getElementById("settingsConnectionSummary").textContent = message;
+      document.getElementById("sidebarBotStatus").lastChild.textContent = ` ${stateLabel}`;
+      document.getElementById("installSummary").textContent = installSummary;
+      document.getElementById("settingsInstallSummary").textContent = document.getElementById("installSummary").textContent;
+      const installBadge = document.getElementById("installBadge");
+      installBadge.textContent = connected ? "Installiert" : "Fehlt";
+      installBadge.className = connected ? "badge" : "badge neutral";
+      const invite = document.getElementById("inviteButton");
+      const settingsInvite = document.getElementById("settingsInviteButton");
+      invite.hidden = connected || !invite.href || invite.getAttribute("href") === "#";
+      settingsInvite.hidden = connected || !settingsInvite.href || settingsInvite.getAttribute("href") === "#";
+    }
+
+    function configureInviteLinks() {
+      if (!/^\d{17,20}$/.test(DISCORD_CLIENT_ID)) return;
+      const inviteUrl = new URL("https://discord.com/oauth2/authorize");
+      inviteUrl.searchParams.set("client_id", DISCORD_CLIENT_ID);
+      inviteUrl.searchParams.set("scope", "bot applications.commands");
+      inviteUrl.searchParams.set("permissions", "268528656");
+      for (const id of ["inviteButton", "settingsInviteButton"]) {
+        document.getElementById(id).href = inviteUrl.toString();
+      }
+    }
+
+    function updatePremiumControls() {
+      document.getElementById("premiumStatus").textContent = premiumTier ? "Premium aktiv" : premiumActive ? "Custom Design aktiv" : "Kein Tarif aktiv";
+      document.querySelectorAll(".premium-field").forEach(field => { field.disabled = !premiumActive; });
+      document.querySelectorAll(".premium-option").forEach(field => { field.disabled = !premiumTier; });
+      const selectedGuildAvailable = availableGuilds.some(guild => guild.id === selectedGuildId);
+      const canConfigure = configLoaded && botInstalled && selectedGuildAvailable;
+      const canCheckout = canConfigure;
+      const sectionButtons = {
+        verification: ["saveVerify", "saveVerifyBottom", "publishVerify", "publishVerifyOverview"],
+        tickets: ["saveTickets", "saveTicketsBottom", "publishTicketPanel"],
+        applications: ["saveApplications", "saveApplicationsBottom", "publishApplicationPanel"],
+        settings: ["saveSettings"],
+      };
+      for (const [section, ids] of Object.entries(sectionButtons)) {
+        for (const id of ids) document.getElementById(id).disabled = !canConfigure || savingSections.has(section);
+      }
+      document.getElementById("subscribeDesign").disabled = !canCheckout || premiumActive;
+      document.getElementById("buyOneTime").disabled = !canCheckout || premiumActive;
+      document.getElementById("subscribePremium").disabled = !canCheckout || premiumTier || monthlySubscription;
+      document.getElementById("manageSubscription").hidden = !monthlySubscription;
+      document.getElementById("manageSubscriptionPage").hidden = !monthlySubscription;
+      document.getElementById("syncCommands").disabled = !botInstalled;
+      document.getElementById("enableAvailableModules").disabled = !canConfigure || moduleSavePending;
+      if (!premiumActive) document.getElementById("premiumStatus").classList.add("neutral");
+      else document.getElementById("premiumStatus").classList.remove("neutral");
+    }
+
+    function updateModuleCount() {
+      document.getElementById("moduleAvailability").textContent =
+        `54 Module · ${implementedModules.size} verfügbar · ${54 - implementedModules.size} noch geplant`;
+      if (!configLoaded) {
+        document.getElementById("enabledMetric").innerHTML = `— <span class="metric-note">von 54</span>`;
+        document.getElementById("moduleCountBadge").textContent = "Server auswählen";
+        return;
+      }
+      const count = enabledByDefault.size;
+      document.getElementById("enabledMetric").innerHTML = `${count} <span class="metric-note">von 54</span>`;
+      document.getElementById("moduleCountBadge").textContent = `${count} von 54 aktiv`;
+    }
+
+    function renderModules() {
+      const root = document.getElementById("moduleGroups");
+      const query = searchQuery.trim().toLocaleLowerCase("de");
+      let totalShown = 0;
+      root.innerHTML = moduleGroups.map((group, groupIndex) => {
+        const cards = group.modules.map(([name, description]) => {
+          const implemented = implementedModules.has(name);
+          const available = implemented && (!premiumModules.has(name) || premiumTier || enabledByDefault.has(name));
+          const enabled = available && enabledByDefault.has(name);
+          if (activeFilter === "enabled" && !enabled) return "";
+          if (activeFilter === "disabled" && enabled) return "";
+          if (query && !(name + " " + description + " " + group.name).toLocaleLowerCase("de").includes(query)) return "";
+          totalShown++;
+          const control = !implemented
+            ? '<span class="badge neutral" title="Discord-Funktion noch nicht implementiert">Geplant</span>'
+            : !available
+              ? '<span class="badge purple" title="Benötigt den Premium-Tarif">Premium</span>'
+              : `<label class="switch"><input type="checkbox" data-module="${name}" aria-label="${name} aktivieren" ${enabled ? "checked" : ""} ${moduleSavePending || !configLoaded ? "disabled" : ""}><span class="switch-track"></span></label>`;
+          const configureButton = implemented
+            ? `<button class="button small module-config-button" type="button" data-configure-module="${name}" aria-label="${name} konfigurieren">Konfigurieren</button>`
+            : "";
+          return `<div class="module-card" data-module-card="${name}"><div class="module-icon" aria-hidden="true">${group.icon}</div><div class="module-info"><div class="module-name">${name}</div><div class="module-desc">${description}</div></div>${control}${configureButton}</div>`;
+        }).join("");
+        if (!cards) return "";
+        return `<section><h2 class="module-group-heading">${group.icon} ${group.name} <span>· ${group.modules.length} Module</span></h2><div class="module-grid">${cards}</div></section>`;
+      }).join("");
+      if (!totalShown) root.innerHTML = '<div class="card empty-state">Keine passenden Module gefunden.</div>';
+      root.querySelectorAll("[data-module]").forEach(input => input.addEventListener("change", () => {
+        if (moduleSavePending) return;
+        const moduleName = input.dataset.module;
+        const wasEnabled = !input.checked;
+        if (input.checked) enabledByDefault.add(input.dataset.module);
+        else enabledByDefault.delete(input.dataset.module);
+        moduleSavePending = true;
+        root.setAttribute("aria-busy", "true");
+        root.querySelectorAll("[data-module]").forEach(toggle => { toggle.disabled = true; });
+        saveConfig({ modules: Object.fromEntries([...implementedModules].map(name => [name, enabledByDefault.has(name)])) })
+          .then(() => {
+            updateModuleCount();
+            showToast(`${moduleName} ${input.checked ? "aktiviert" : "deaktiviert"}.`);
+          })
+          .catch(error => {
+            if (wasEnabled) enabledByDefault.add(moduleName);
+            else enabledByDefault.delete(moduleName);
+            updateModuleCount();
+            renderModules();
+            showError(error);
+          })
+          .finally(() => {
+            moduleSavePending = false;
+            root.removeAttribute("aria-busy");
+            root.querySelectorAll("[data-module]").forEach(toggle => { toggle.disabled = false; });
+          });
+      }));
+      root.querySelectorAll("[data-configure-module]").forEach(button => button.addEventListener("click", () => {
+        openModuleConfiguration(button.dataset.configureModule);
+      }));
+      updateModuleCount();
+    }
+
+    function openModuleConfiguration(name) {
+      if (!implementedModules.has(name)) return;
+      if (premiumModules.has(name) && !premiumTier && !enabledByDefault.has(name)) {
+        navigate("premium");
+        showToast(`${name} benötigt Product Bot Premium.`);
+        return;
+      }
+      const configuration = moduleConfigurations[name];
+      if (configuration?.page) {
+        navigate(configuration.page);
+        if (configuration.target) {
+          const target = document.querySelector(configuration.target);
+          const card = target?.closest(".field, .card") || target;
+          card?.scrollIntoView({ behavior: "smooth", block: "center" });
+          card?.classList.add("module-config-highlight");
+          setTimeout(() => card?.classList.remove("module-config-highlight"), 1800);
+          target?.focus({ preventScroll: true });
+        }
+        return;
+      }
+      const moduleCard = [...document.querySelectorAll("[data-module-card]")].find(card => card.dataset.moduleCard === name);
+      moduleCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+      moduleCard?.classList.add("module-config-highlight");
+      setTimeout(() => moduleCard?.classList.remove("module-config-highlight"), 1800);
+      showToast(configuration?.command
+        ? `${name}: Einstellungen erfolgen über ${configuration.command}.`
+        : `${name} hat keine zusätzlichen Moduleinstellungen.`);
+    }
+
+    function navigate(page) {
+      if (page === "admin" && !adminEnabled) return;
+      const currentPage = document.querySelector(".page.active")?.id.replace("page-", "");
+      if (page === currentPage) return;
+      const currentSection = {
+        verification: "verification",
+        tickets: "tickets",
+        applications: "applications",
+        settings: "settings",
+      }[currentPage];
+      if (currentSection && savedFormSignatures.has(currentSection)
+        && savedFormSignatures.get(currentSection) !== formSignature(currentSection)
+        && !window.confirm("Diese Seite enthält ungespeicherte Änderungen. Möchtest du sie wirklich verlassen?")) {
+        return;
+      }
+      document.querySelectorAll(".page").forEach(section => section.classList.toggle("active", section.id === "page-" + page));
+      document.querySelectorAll(".nav-button[data-page]").forEach(button => {
+        const active = button.dataset.page === page;
+        button.classList.toggle("active", active);
+        if (active) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
+      const activeButton = document.querySelector(`.nav-button[data-page="${page}"]`);
+      document.getElementById("breadcrumbCurrent").textContent = activeButton ? activeButton.querySelector(".nav-label").textContent : "Übersicht";
+      if (page === "modules") renderModules();
+      closeMobileMenu();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function closeMobileMenu() {
+      const app = document.querySelector(".app");
+      const menu = document.getElementById("primaryNavigation").closest(".sidebar");
+      const button = document.getElementById("mobileMenuButton");
+      app.classList.remove("menu-open");
+      menu.inert = window.matchMedia("(max-width: 650px)").matches;
+      button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-label", "Navigation öffnen");
+      document.getElementById("mobileMenuBackdrop").hidden = true;
+    }
+
+    function updateMobileNavigation() {
+      const app = document.querySelector(".app");
+      const menu = document.getElementById("primaryNavigation").closest(".sidebar");
+      const button = document.getElementById("mobileMenuButton");
+      const isMobile = window.matchMedia("(max-width: 650px)").matches;
+      if (!isMobile) app.classList.remove("menu-open");
+      const isOpen = isMobile && app.classList.contains("menu-open");
+      menu.inert = isMobile && !isOpen;
+      button.setAttribute("aria-expanded", String(isOpen));
+      button.setAttribute("aria-label", isOpen ? "Navigation schließen" : "Navigation öffnen");
+      document.getElementById("mobileMenuBackdrop").hidden = !isOpen;
+    }
+
+    function toggleMobileMenu() {
+      const app = document.querySelector(".app");
+      const menu = document.getElementById("primaryNavigation").closest(".sidebar");
+      const button = document.getElementById("mobileMenuButton");
+      const isOpen = app.classList.toggle("menu-open");
+      menu.inert = !isOpen;
+      button.setAttribute("aria-expanded", String(isOpen));
+      button.setAttribute("aria-label", isOpen ? "Navigation schließen" : "Navigation öffnen");
+      document.getElementById("mobileMenuBackdrop").hidden = !isOpen;
+      if (isOpen) menu.querySelector(".nav-button[data-page]")?.focus();
+    }
+
+    function setOptions(element, values, selected, placeholder, format) {
+      element.replaceChildren(new Option(placeholder, ""));
+      for (const value of values) element.add(new Option(format(value), value.id));
+      element.value = selected || "";
+      element.disabled = values.length === 0;
+    }
+
+    function setMultiOptions(element, values, selected, format) {
+      const selectedValues = new Set(selected || []);
+      element.replaceChildren();
+      for (const value of values) {
+        const option = new Option(format(value), value.id);
+        option.selected = selectedValues.has(value.id);
+        element.add(option);
+      }
+      element.disabled = values.length === 0;
+    }
+
+    function updateApplicationUsage() {
+      const badge = document.getElementById("applicationUsage");
+      if (!applicationPanelUsage) {
+        badge.textContent = "Server auswählen";
+        return;
+      }
+      badge.textContent = `${applicationPanelUsage.remaining} von 3 kostenlosen Panels übrig`;
+    }
+
+    function updatePreviews() {
+      const verifyTitle = document.getElementById("verifyTitle").value || "Willkommen auf deinem Server!";
+      const verifyMessage = document.getElementById("verifyMessage").value || "Bestätige kurz, dass du ein echter Mensch bist.";
+      const verifyButtonText = document.getElementById("verifyButtonText").value || "Jetzt verifizieren";
+      const ticketTitle = document.getElementById("ticketTitle").value || "Wie können wir dir helfen?";
+      const ticketMessage = document.getElementById("ticketMessage").value || "Erstelle ein Ticket, unser Team hilft dir gerne.";
+      const ticketButtonText = document.getElementById("ticketButtonText").value || "＋ Ticket erstellen";
+      const applicationTitle = document.getElementById("applicationTitle").value || "Bewirb dich bei uns";
+      const applicationMessage = document.getElementById("applicationMessage").value || "Fülle das Formular aus, um dich bei unserem Team zu bewerben.";
+      const applicationButtonText = document.getElementById("applicationButtonText").value || "Bewerbung starten";
+      for (const [inputId, counterId] of [
+        ["verifyTitle", "verifyTitleCount"], ["verifyMessage", "verifyMessageCount"], ["verifyButtonText", "verifyButtonTextCount"],
+        ["ticketTitle", "ticketTitleCount"], ["ticketMessage", "ticketMessageCount"], ["ticketButtonText", "ticketButtonTextCount"],
+        ["applicationTitle", "applicationTitleCount"], ["applicationMessage", "applicationMessageCount"], ["applicationButtonText", "applicationButtonTextCount"],
+      ]) {
+        const field = document.getElementById(inputId);
+        const counter = document.getElementById(counterId);
+        const maximum = Number(field.maxLength);
+        counter.textContent = `${field.value.length} / ${maximum}`;
+        counter.classList.toggle("near-limit", field.value.length >= maximum * .9);
+      }
+      document.getElementById("verifyPreviewTitle").textContent = verifyTitle;
+      document.getElementById("verifyPreviewMessage").textContent = verifyMessage;
+      document.getElementById("verifyPreviewButton").textContent = verifyButtonText;
+      document.getElementById("overviewVerifyTitle").textContent = verifyTitle;
+      document.getElementById("overviewVerifyMessage").textContent = verifyMessage;
+      document.getElementById("ticketPreviewTitle").textContent = ticketTitle;
+      document.getElementById("ticketPreviewMessage").textContent = ticketMessage;
+      document.getElementById("ticketPreviewButton").textContent = ticketButtonText;
+      document.getElementById("applicationPreviewTitle").textContent = applicationTitle;
+      document.getElementById("applicationPreviewMessage").textContent = applicationMessage;
+      document.getElementById("applicationPreviewButton").textContent = applicationButtonText;
+      const questionPreview = document.getElementById("applicationQuestionsPreview");
+      const questions = document.getElementById("applicationQuestions").value
+        .split("\n").map(question => question.trim()).filter(Boolean).slice(0, 5);
+      questionPreview.replaceChildren();
+      const previewQuestions = questions.length ? questions : ["Deine Fragen werden hier angezeigt."];
+      for (const question of previewQuestions) {
+        const item = document.createElement("li");
+        item.textContent = question;
+        questionPreview.append(item);
+      }
+      questionPreview.classList.toggle("empty", questions.length === 0);
+      const serverName = document.getElementById("serverNameInput").value;
+      const sampleServer = serverName && serverName !== "Kein Server ausgewählt" ? serverName : "Dein Server";
+      for (const [inputId, previewId] of [
+        ["welcomeMessage", "welcomeMessagePreview"],
+        ["goodbyeMessage", "goodbyeMessagePreview"],
+      ]) {
+        const message = document.getElementById(inputId).value;
+        document.getElementById(previewId).textContent = (message || "Deine Nachricht erscheint hier.")
+          .replaceAll("{user}", "@Max")
+          .replaceAll("{username}", "Max")
+          .replaceAll("{server}", sampleServer);
+      }
+      document.getElementById("verifyPreviewTitle").style.color = document.getElementById("verifyColor").value;
+      document.getElementById("ticketPreviewTitle").style.color = document.getElementById("ticketColor").value;
+      document.getElementById("applicationPreviewTitle").style.color = document.getElementById("applicationColor").value;
+      for (const [inputId, imageId] of [
+        ["verifyImageUrl", "verifyPreviewImage"],
+        ["ticketImageUrl", "ticketPreviewImage"],
+        ["applicationImageUrl", "applicationPreviewImage"],
+      ]) {
+        const image = document.getElementById(imageId);
+        const value = document.getElementById(inputId).value.trim();
+        try {
+          const url = new URL(value);
+          if (url.protocol !== "https:" || url.username || url.password) throw new Error("Invalid preview URL");
+          image.onerror = () => { image.hidden = true; };
+          image.onload = () => { image.hidden = false; };
+          image.src = url.toString();
+          image.hidden = false;
+        } catch {
+          image.onerror = null;
+          image.onload = null;
+          image.removeAttribute("src");
+          image.hidden = true;
+        }
+      }
+    }
+
+    function fieldsForSection(section, config = currentConfigFromForm()) {
+      if (section === "verification") {
+        return Object.fromEntries(Object.entries(config).filter(([key]) => key.startsWith("verification")));
+      }
+      if (section === "tickets") {
+        return Object.fromEntries(Object.entries(config).filter(([key]) => key.startsWith("ticket") || key === "supportRoleId"));
+      }
+      if (section === "applications") {
+        return Object.fromEntries(Object.entries(config).filter(([key]) => key.startsWith("application")));
+      }
+      return {
+        language: document.getElementById("languageSelect").value,
+        timezone: document.getElementById("timezoneSelect").value,
+        logChannelId: document.getElementById("logChannel").value,
+        moduleSettings: config.moduleSettings,
+      };
+    }
+
+    function formSignature(section) {
+      return JSON.stringify(fieldsForSection(section));
+    }
+
+    function setFormSaved(section, signature = formSignature(section)) {
+      savedFormSignatures.set(section, signature);
+      updateSaveStates();
+    }
+
+    function validateFormSection(section) {
+      const fieldIds = {
+        verification: ["verifyTitle", "verifyMessage", "verifyButtonText", "verifyImageUrl"],
+        tickets: ["ticketTitle", "ticketMessage", "ticketButtonText", "ticketImageUrl"],
+        applications: ["applicationTitle", "applicationMessage", "applicationButtonText", "applicationImageUrl"],
+        settings: [],
+      }[section];
+      let isValid = true;
+      let firstInvalidField;
+      for (const id of fieldIds) {
+        const field = document.getElementById(id);
+        const isImage = id.endsWith("ImageUrl");
+        let invalidImageUrl = false;
+        if (isImage && field.value.trim()) {
+          try {
+            const url = new URL(field.value.trim());
+            invalidImageUrl = url.protocol !== "https:" || !url.hostname || Boolean(url.username || url.password);
+          } catch {
+            invalidImageUrl = true;
+          }
+        }
+        field.setCustomValidity(
+          invalidImageUrl
+            ? "Bitte gib eine gültige öffentliche HTTPS-Bildadresse ein."
+            : !isImage && field.required && !field.value.trim()
+              ? "Dieses Feld darf nicht leer sein."
+              : "",
+        );
+        if (!field.checkValidity()) {
+          isValid = false;
+          firstInvalidField ||= field;
+        }
+      }
+      if (section === "applications") {
+        if (!validateApplicationQuestions()) {
+          isValid = false;
+          firstInvalidField ||= document.getElementById("applicationQuestions");
+        }
+      }
+      firstInvalidField?.reportValidity();
+      if (firstInvalidField?.id === "applicationQuestions") firstInvalidField.focus();
+      return isValid;
+    }
+
+    function updateSaveStates() {
+      const labels = {
+        verification: "verificationSaveState",
+        tickets: "ticketsSaveState",
+        applications: "applicationsSaveState",
+        settings: "settingsSaveState",
+      };
+      for (const [section, elementId] of Object.entries(labels)) {
+        const state = document.getElementById(elementId);
+        if (!configLoaded || !savedFormSignatures.has(section)) {
+          state.textContent = "Noch nicht geladen";
+          state.classList.remove("dirty", "error");
+          continue;
+        }
+        if (savingSections.has(section)) {
+          state.textContent = "Wird gespeichert / veröffentlicht …";
+          state.classList.remove("error");
+          continue;
+        }
+        if (failedFormStates.has(section)) {
+          state.textContent = failedFormStates.get(section);
+          state.classList.add("error");
+          state.classList.remove("dirty");
+          continue;
+        }
+        const valid = section !== "applications" || validateApplicationQuestions();
+        const dirty = savedFormSignatures.get(section) !== formSignature(section);
+        state.textContent = !valid ? "Eingaben prüfen" : dirty ? "Ungespeicherte Änderungen" : "Gespeichert";
+        state.classList.toggle("dirty", dirty && valid);
+        state.classList.toggle("error", !valid);
+      }
+    }
+
+    function validateApplicationQuestions() {
+      const questions = document.getElementById("applicationQuestions").value
+        .split("\n").map(question => question.trim()).filter(Boolean);
+      const invalid = questions.length < 1 || questions.length > 5 || questions.some(question => question.length > 45);
+      const error = document.getElementById("applicationQuestionsError");
+      error.textContent = invalid
+        ? questions.length < 1
+          ? "Gib mindestens eine Formularfrage ein."
+          : questions.length > 5
+            ? "Es sind höchstens fünf Fragen erlaubt."
+            : "Jede Frage darf höchstens 45 Zeichen lang sein."
+        : "";
+      document.getElementById("applicationQuestions").setAttribute("aria-invalid", String(invalid));
+      return !invalid;
+    }
+
+    function hasUnsavedChanges() {
+      return configLoaded && [...savedFormSignatures].some(([section, signature]) => signature !== formSignature(section));
+    }
+
+    function startSectionSave(section) {
+      if (savingSections.has(section)) return false;
+      failedFormStates.delete(section);
+      savingSections.add(section);
+      updatePremiumControls();
+      return true;
+    }
+
+    function finishSectionSave(section) {
+      savingSections.delete(section);
+      updatePremiumControls();
+      updateSaveStates();
+    }
+
+    function currentConfigFromForm() {
+      return {
+        verificationChannelId: document.getElementById("verifyChannel").value,
+        verificationRoleId: document.getElementById("verifiedRole").value,
+        verificationTitle: document.getElementById("verifyTitle").value,
+        verificationMessage: document.getElementById("verifyMessage").value,
+        verificationButtonText: document.getElementById("verifyButtonText").value,
+        verificationColor: document.getElementById("verifyColor").value,
+        verificationImageUrl: document.getElementById("verifyImageUrl").value.trim(),
+        ticketChannelId: document.getElementById("ticketChannel").value,
+        ticketCategoryId: document.getElementById("ticketCategory").value,
+        supportRoleId: document.getElementById("supportRole").value,
+        ticketTitle: document.getElementById("ticketTitle").value,
+        ticketMessage: document.getElementById("ticketMessage").value,
+        ticketButtonText: document.getElementById("ticketButtonText").value,
+        ticketColor: document.getElementById("ticketColor").value,
+        ticketImageUrl: document.getElementById("ticketImageUrl").value.trim(),
+        applicationChannelId: document.getElementById("applicationChannel").value,
+        applicationReviewChannelId: document.getElementById("applicationReviewChannel").value,
+        applicationTitle: document.getElementById("applicationTitle").value,
+        applicationMessage: document.getElementById("applicationMessage").value,
+        applicationButtonText: document.getElementById("applicationButtonText").value,
+        applicationColor: document.getElementById("applicationColor").value,
+        applicationImageUrl: document.getElementById("applicationImageUrl").value.trim(),
+        applicationQuestions: document.getElementById("applicationQuestions").value.split("\n").map(question => question.trim()).filter(Boolean),
+        moduleSettings: {
+          ...currentConfig.moduleSettings,
+          "Anti-Spam": {
+            limit: Number(document.getElementById("antiSpamLimit").value),
+            windowSeconds: Number(document.getElementById("antiSpamWindow").value),
+            ignoredRoleIds: Array.from(document.getElementById("antiSpamIgnoredRoleIds").selectedOptions, option => option.value),
+          },
+          AutoMod: {
+            maxMentions: Number(document.getElementById("autoModMaxMentions").value),
+            blockInvites: document.getElementById("autoModBlockInvites").checked,
+          },
+          "Anti-Raid": {
+            joinLimit: Number(document.getElementById("antiRaidJoinLimit").value),
+            windowSeconds: Number(document.getElementById("antiRaidWindow").value),
+          },
+          "Anti-Link": {
+            allowedDomains: document.getElementById("allowedLinkDomains").value.split("\n").map(domain => domain.trim()).filter(Boolean),
+          },
+          "Wortfilter": {
+            blockedWords: document.getElementById("blockedWords").value.split("\n").map(word => word.trim()).filter(Boolean),
+          },
+          "Account-Alter-Check": {
+            minimumAgeDays: Number(document.getElementById("minimumAccountAge").value),
+          },
+          "Willkommensnachrichten": {
+            channelId: document.getElementById("welcomeChannel").value,
+            message: document.getElementById("welcomeMessage").value,
+          },
+          "Abschiedsnachrichten": {
+            channelId: document.getElementById("goodbyeChannel").value,
+            message: document.getElementById("goodbyeMessage").value,
+          },
+          "Auto-Rollen": {
+            roleIds: Array.from(document.getElementById("autoRoleIds").selectedOptions, option => option.value),
+          },
+        },
+        modules: Object.fromEntries([...implementedModules].map(name => [name, enabledByDefault.has(name)]))
+      };
+    }
+
+    async function saveConfig(fields) {
+      if (!selectedGuildId) throw new Error("Wähle zuerst einen Discord-Server aus.");
+      const result = await apiRequest(`/api/guild/${selectedGuildId}/config`, {
+        method: "PUT",
+        body: JSON.stringify(fields)
+      });
+      currentConfig = { ...currentConfig, ...result.config };
+      return result.config;
+    }
+
+    let currentConfig = {};
+    async function saveFormSections(section) {
+      const config = currentConfigFromForm();
+      if (!validateFormSection(section)) {
+        updateSaveStates();
+        return;
+      }
+      const fields = fieldsForSection(section, config);
+      const submittedSignature = JSON.stringify(fields);
+      if (!startSectionSave(section)) return;
+      try {
+        await saveConfig(fields);
+        setFormSaved(section, submittedSignature);
+      } catch (error) {
+        failedFormStates.set(section, "Speichern fehlgeschlagen");
+        throw error;
+      } finally {
+        finishSectionSave(section);
+      }
+      showToast("Einstellungen wurden in der Cloudflare-Datenbank gespeichert.");
+    }
+
+    async function publishPanel(kind) {
+      if (!selectedGuildId) throw new Error("Wähle zuerst einen Discord-Server aus.");
+      const section = kind === "verification" ? "verification" : kind === "applications" ? "applications" : "tickets";
+      if (!validateFormSection(section)) {
+        updateSaveStates();
+        return;
+      }
+      const config = currentConfigFromForm();
+      const panelChannel = kind === "verification" ? config.verificationChannelId
+        : kind === "applications" ? config.applicationChannelId : config.ticketChannelId;
+      if (!panelChannel) {
+        const channelField = document.getElementById(kind === "verification" ? "verifyChannel"
+          : kind === "applications" ? "applicationChannel" : "ticketChannel");
+        channelField.focus();
+        throw new Error("Wähle zuerst einen Discord-Kanal für dieses Panel aus.");
+      }
+      if (kind === "verification" && !config.verificationRoleId) {
+        document.getElementById("verifiedRole").focus();
+        throw new Error("Wähle zuerst eine Rolle aus, die nach der Verifizierung vergeben wird.");
+      }
+      if (kind === "applications" && !config.applicationReviewChannelId) {
+        document.getElementById("applicationReviewChannel").focus();
+        throw new Error("Wähle zuerst einen privaten Prüfkanal für Bewerbungen aus.");
+      }
+      const requiredModule = kind === "verification" ? "Verifizierung"
+        : kind === "applications" ? "Bewerbungs-Panel" : "Ticket-Panel";
+      if (!enabledByDefault.has(requiredModule)) {
+        throw new Error(`Aktiviere zuerst das Modul „${requiredModule}“ auf der Modul-Seite.`);
+      }
+      if (!startSectionSave(section)) return;
+      let result;
+      try {
+        const fields = fieldsForSection(section, config);
+        const submittedSignature = JSON.stringify(fields);
+        await saveConfig(fields);
+        setFormSaved(section, submittedSignature);
+        const panelPath = kind === "verification" ? "verification" : kind === "applications" ? "application" : "tickets";
+        result = await apiRequest(`/api/guild/${selectedGuildId}/panels/${panelPath}`, { method: "POST" });
+      } catch (error) {
+        failedFormStates.set(section, "Veröffentlichen fehlgeschlagen");
+        throw error;
+      } finally {
+        finishSectionSave(section);
+      }
+      if (kind === "applications") {
+        applicationPanelUsage = result.applicationPanelUsage;
+        updateApplicationUsage();
+        document.getElementById("applicationPanelState").textContent = "Gesendet";
+      } else {
+        document.getElementById(kind === "verification" ? "verifyPanelState" : "ticketPanelState").textContent = "Gesendet";
+      }
+      showToast(`Panel in Discord veröffentlicht (Nachricht ${result.messageId}).`);
+    }
+
+    function applyConfig(config) {
+      currentConfig = config;
+      configLoaded = true;
+      updatePremiumControls();
+      document.getElementById("verifyChannel").value = config.verificationChannelId || "";
+      document.getElementById("verifiedRole").value = config.verificationRoleId || "";
+      document.getElementById("verifyTitle").value = config.verificationTitle;
+      document.getElementById("verifyMessage").value = config.verificationMessage;
+      document.getElementById("verifyButtonText").value = config.verificationButtonText;
+      document.getElementById("verifyColor").value = config.verificationColor || "#8b78ff";
+      document.getElementById("ticketChannel").value = config.ticketChannelId || "";
+      document.getElementById("ticketCategory").value = config.ticketCategoryId || "";
+      document.getElementById("supportRole").value = config.supportRoleId || "";
+      document.getElementById("ticketTitle").value = config.ticketTitle;
+      document.getElementById("ticketMessage").value = config.ticketMessage;
+      document.getElementById("ticketButtonText").value = config.ticketButtonText;
+      document.getElementById("ticketColor").value = config.ticketColor || "#8b78ff";
+      document.getElementById("ticketImageUrl").value = config.ticketImageUrl || "";
+      document.getElementById("verifyImageUrl").value = config.verificationImageUrl || "";
+      document.getElementById("applicationChannel").value = config.applicationChannelId || "";
+      document.getElementById("applicationReviewChannel").value = config.applicationReviewChannelId || "";
+      document.getElementById("applicationTitle").value = config.applicationTitle;
+      document.getElementById("applicationMessage").value = config.applicationMessage;
+      document.getElementById("applicationButtonText").value = config.applicationButtonText;
+      document.getElementById("applicationColor").value = config.applicationColor || "#8b78ff";
+      document.getElementById("applicationImageUrl").value = config.applicationImageUrl || "";
+      document.getElementById("applicationQuestions").value = (config.applicationQuestions || []).join("\n");
+      const settings = config.moduleSettings || {};
+      document.getElementById("welcomeChannel").value = settings["Willkommensnachrichten"]?.channelId || "";
+      document.getElementById("welcomeMessage").value = settings["Willkommensnachrichten"]?.message || "Willkommen {user} auf {server}!";
+      document.getElementById("goodbyeChannel").value = settings["Abschiedsnachrichten"]?.channelId || "";
+      document.getElementById("goodbyeMessage").value = settings["Abschiedsnachrichten"]?.message || "{username} hat den Server verlassen.";
+      document.getElementById("antiSpamLimit").value = settings["Anti-Spam"]?.limit || 5;
+      document.getElementById("antiSpamWindow").value = settings["Anti-Spam"]?.windowSeconds || 8;
+      document.getElementById("allowedLinkDomains").value = (settings["Anti-Link"]?.allowedDomains || []).join("\n");
+      document.getElementById("blockedWords").value = (settings.Wortfilter?.blockedWords || []).join("\n");
+      document.getElementById("minimumAccountAge").value = settings["Account-Alter-Check"]?.minimumAgeDays || 7;
+      document.getElementById("autoModMaxMentions").value = settings.AutoMod?.maxMentions || 5;
+      document.getElementById("autoModBlockInvites").checked = settings.AutoMod?.blockInvites !== false;
+      document.getElementById("antiRaidJoinLimit").value = settings["Anti-Raid"]?.joinLimit || 8;
+      document.getElementById("antiRaidWindow").value = settings["Anti-Raid"]?.windowSeconds || 20;
+      setMultiOptions(document.getElementById("autoRoleIds"), availableRoles, settings["Auto-Rollen"]?.roleIds || [], role => `@ ${role.name}`);
+      setMultiOptions(document.getElementById("antiSpamIgnoredRoleIds"), availableRoles, settings["Anti-Spam"]?.ignoredRoleIds || [], role => `@ ${role.name}`);
+      document.getElementById("languageSelect").value = config.language || "Deutsch";
+      document.getElementById("timezoneSelect").value = config.timezone || "Europe/Berlin";
+      document.getElementById("logChannel").value = config.logChannelId || "";
+      enabledByDefault.clear();
+      for (const name of implementedModules) {
+        if (config.modules?.[name]) enabledByDefault.add(name);
+      }
+      updatePreviews();
+      updateModuleCount();
+      renderModules();
+      for (const section of ["verification", "tickets", "applications", "settings"]) {
+        savedFormSignatures.set(section, formSignature(section));
+      }
+      updateSaveStates();
+    }
+
+    function formatAge(timestamp) {
+      const minutes = Math.max(0, Math.floor(Date.now() / 1000 - timestamp) / 60);
+      if (minutes < 1) return "gerade eben";
+      if (minutes < 60) return `vor ${Math.floor(minutes)} Min.`;
+      return `vor ${Math.floor(minutes / 60)} Std.`;
+    }
+
+    async function loadStats() {
+      const result = await apiRequest(`/api/guild/${selectedGuildId}/stats`);
+      document.getElementById("memberMetric").textContent = result.members?.toLocaleString("de-DE") ?? "—";
+      document.getElementById("verifiedMetric").textContent = result.verified.toLocaleString("de-DE");
+      document.getElementById("ticketMetric").textContent = result.openTickets.toLocaleString("de-DE");
+      document.getElementById("openTicketCount").textContent = result.openTickets.toLocaleString("de-DE");
+      document.getElementById("ticketNavCount").textContent = result.openTickets.toLocaleString("de-DE");
+      document.getElementById("ticketCountBadge").textContent = `${result.openTickets} offen`;
+      const list = document.getElementById("activityList");
+      list.replaceChildren();
+      if (!result.activity.length) {
+        list.textContent = "Noch keine Verifizierungs- oder Ticket-Aktivitäten.";
+      } else {
+        for (const entry of result.activity) {
+          const row = document.createElement("div");
+          row.className = "activity";
+          const icon = document.createElement("div");
+          icon.className = "activity-icon";
+          icon.textContent = entry.event === "verified" ? "✓" : "▤";
+          const copy = document.createElement("div");
+          copy.className = "activity-copy";
+          const detail = document.createElement("strong");
+          detail.textContent = `Discord-Mitglied ${entry.user_id}`;
+          const time = document.createElement("div");
+          time.className = "activity-time";
+          time.textContent = formatAge(entry.created_at);
+          copy.append(detail, document.createTextNode(` · ${entry.event === "verified" ? "verifiziert" : entry.event === "ticket_opened" ? "Ticket erstellt" : "Ticket geschlossen"}`), time);
+          row.append(icon, copy);
+          list.append(row);
+        }
+
+      }
+    }
+
+    function renderAdminRows(elementId, rows, columns, emptyMessage) {
+      const body = document.getElementById(elementId);
+      body.replaceChildren();
+      if (!rows.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = columns.length;
+        cell.textContent = emptyMessage;
+        row.append(cell);
+        body.append(row);
+        return;
+      }
+      for (const item of rows) {
+        const row = document.createElement("tr");
+        for (const column of columns) {
+          const cell = document.createElement("td");
+          cell.textContent = column(item);
+          row.append(cell);
+        }
+        body.append(row);
+      }
+    }
+
+    function adminDate(timestamp) {
+      return timestamp ? new Date(timestamp * 1000).toLocaleString("de-DE") : "—";
+    }
+
+    async function refreshAdminOverview() {
+      const overview = await apiRequest("/api/admin/overview");
+      const serverSelect = document.getElementById("adminGuildSelect");
+      serverSelect.replaceChildren(new Option("Server auswählen", ""));
+      for (const server of overview.servers) {
+        serverSelect.add(new Option(`${server.name} · ${server.guildId}`, server.guildId));
+      }
+      renderAdminRows("adminServers", overview.servers, [
+        item => item.name,
+        item => item.guildId,
+        item => String(item.activeModules),
+        item => item.gatewayOnline ? "Online" : "Offline",
+        item => item.lastActivity
+          ? `${item.lastActivity.event} · ${adminDate(item.lastActivity.created_at)}`
+          : "Noch keine Aktivität",
+      ], "Noch keine Serverkonfigurationen.");
+      renderAdminRows("adminPurchases", overview.purchases, [
+        item => adminDate(item.occurred_at),
+        item => item.guild_id,
+        item => item.payer_discord_user_id,
+        item => item.plan,
+        item => new Intl.NumberFormat("de-DE", { style: "currency", currency: (item.currency || "usd").toUpperCase() })
+          .format((item.amount_minor || 0) / 100),
+        item => item.event_type,
+      ], "Noch keine erfassten Käufe.");
+      renderAdminRows("adminGifts", overview.gifts, [
+        item => adminDate(item.created_at),
+        item => item.actor_discord_user_id,
+        item => item.target_discord_user_id,
+        item => adminDate(item.expires_at),
+        item => item.reason || "—",
+      ], "Noch keine Geschenke.");
+    }
+
+    async function loadAdminPanel() {
+      adminEnabled = false;
+      document.getElementById("adminNav").hidden = true;
+      const status = await apiRequest("/api/admin/status");
+      if (!status.isAdmin) return;
+      adminEnabled = true;
+      document.getElementById("adminNav").hidden = false;
+      await refreshAdminOverview();
+    }
+
+    async function searchAdminUser() {
+      const guildId = document.getElementById("adminGuildSelect").value;
+      const query = document.getElementById("adminUsername").value.trim();
+      if (!guildId || !query) throw new Error("Wähle einen Server aus und gib einen Discord-Namen ein.");
+      const result = await apiRequest("/api/admin/users/search", {
+        method: "POST",
+        body: JSON.stringify({ guildId, query }),
+      });
+      adminUsers = result.users;
+      const select = document.getElementById("adminUserResults");
+      select.replaceChildren(new Option(
+        adminUsers.length ? "Exakten Account auswählen" : "Kein exakter Treffer in diesem Server",
+        "",
+      ));
+      for (const user of adminUsers) {
+        select.add(new Option(`${user.displayName} (@${user.username}) · ${user.userId}`, user.userId));
+      }
+      select.disabled = adminUsers.length === 0;
+      document.getElementById("grantAdminGift").disabled = true;
+    }
+
+    async function grantAdminGift() {
+      const guildId = document.getElementById("adminGuildSelect").value;
+      const targetUserId = document.getElementById("adminUserResults").value;
+      if (!guildId || !adminUsers.some(user => user.userId === targetUserId)) {
+        throw new Error("Wähle zuerst einen exakten Discord-Account-Treffer aus.");
+      }
+      const recipient = adminUsers.find(user => user.userId === targetUserId);
+      if (!window.confirm(`Premium 30 Tage lang an ${recipient.displayName} (@${recipient.username}) vergeben?`)) return;
+      const result = await apiRequest("/api/admin/gifts", {
+        method: "POST",
+        body: JSON.stringify({
+          guildId,
+          targetUserId,
+          reason: document.getElementById("adminGiftReason").value.trim(),
+        }),
+      });
+      showToast(`Premium für ${recipient.displayName} bis ${adminDate(result.expiresAt)} vergeben.`);
+      await refreshAdminOverview();
+    }
+
+    async function loadGuild(guildId) {
+      if (savingSections.size) {
+        document.getElementById("guildSelect").value = selectedGuildId;
+        showToast("Bitte warte, bis der laufende Speichervorgang abgeschlossen ist.");
+        return;
+      }
+      if (guildId !== selectedGuildId && hasUnsavedChanges()
+        && !window.confirm("Du hast ungespeicherte Änderungen. Beim Wechseln des Servers gehen sie verloren. Trotzdem wechseln?")) {
+        document.getElementById("guildSelect").value = selectedGuildId;
+        return;
+      }
+      const loadSequence = ++guildLoadSequence;
+      failedFormStates.clear();
+      selectedGuildId = guildId;
+      configLoaded = false;
+      updateSaveStates();
+      availableRoles = [];
+      enabledByDefault.clear();
+      premiumActive = false;
+      premiumTier = false;
+      monthlySubscription = false;
+      applicationPanelUsage = null;
+      updateApplicationUsage();
+      botInstalled = false;
+      updatePremiumControls();
+      renderModules();
+      localStorage.setItem("product_bot_guild", guildId);
+      const guild = availableGuilds.find(item => item.id === guildId);
+      if (!guild) return;
+      document.getElementById("headerServerName").textContent = guild.name;
+      document.getElementById("sidebarServerName").textContent = guild.name;
+      document.getElementById("serverNameInput").value = guild.name;
+      document.querySelectorAll(".preview-server-name").forEach(element => { element.textContent = guild.name; });
+      clearGuildResources("Lade Serveroptionen …");
+      const invite = document.getElementById("inviteButton");
+      const settingsInvite = document.getElementById("settingsInviteButton");
+      if (invite.href && invite.href !== "#") {
+        const inviteUrl = new URL(invite.href);
+        inviteUrl.searchParams.set("guild_id", guildId);
+        inviteUrl.searchParams.set("disable_guild_select", "true");
+        invite.href = inviteUrl.toString();
+        settingsInvite.href = invite.href;
+      }
+      const status = await apiRequest(`/api/guild/${guildId}/status`);
+      if (loadSequence !== guildLoadSequence) return;
+      setConnectionState(status.botInstalled, status.botInstalled ? "Bot ist im ausgewählten Discord-Server installiert." : "Der Bot muss zuerst zum ausgewählten Discord-Server eingeladen werden.");
+      document.getElementById("connectionSummary").textContent = "Discord OAuth ist aktiv.";
+      document.getElementById("settingsConnectionSummary").textContent = "Discord OAuth ist aktiv.";
+      const data = await apiRequest(`/api/guild/${guildId}/config`);
+      if (loadSequence !== guildLoadSequence) return;
+      premiumActive = data.premium;
+      premiumTier = data.premiumTier;
+      applicationPanelUsage = data.applicationPanelUsage;
+      updateApplicationUsage();
+      const gatewayBadge = document.getElementById("gatewayRuntimeBadge");
+      gatewayBadge.textContent = data.gatewayOnline ? "Online" : "Offline";
+      gatewayBadge.className = data.gatewayOnline ? "badge" : "badge neutral";
+      document.getElementById("gatewayRuntimeSummary").textContent = data.gatewayOnline
+        ? "Der Gateway-Bot meldet sich regelmäßig."
+        : "Ereignis-Module warten auf den dauerhaft laufenden Bot-Prozess.";
+      monthlySubscription = Boolean(
+        data.subscription?.stripe_subscription_id
+        && !["canceled", "incomplete_expired"].includes(data.subscription.status)
+      );
+      botInstalled = status.botInstalled;
+      updatePremiumControls();
+      if (!status.botInstalled) {
+        applyConfig(data.config);
+        document.getElementById("ticketSetupBadge").textContent = "Bot fehlt";
+        document.getElementById("verificationStatusBadge").textContent = "Bot fehlt";
+        return;
+      }
+      const resources = await apiRequest(`/api/guild/${guildId}/resources`);
+      if (loadSequence !== guildLoadSequence) return;
+      const textChannels = resources.channels.filter(channel => channel.type === 0);
+      const categories = resources.channels.filter(channel => channel.type === 4);
+      const roles = resources.roles;
+      setOptions(document.getElementById("verifyChannel"), textChannels, data.config.verificationChannelId, "Kanal auswählen", item => `# ${item.name}`);
+      setOptions(document.getElementById("ticketChannel"), textChannels, data.config.ticketChannelId, "Kanal auswählen", item => `# ${item.name}`);
+      setOptions(document.getElementById("logChannel"), textChannels, data.config.logChannelId, "Kein Kanal", item => `# ${item.name}`);
+      setOptions(document.getElementById("ticketCategory"), categories, data.config.ticketCategoryId, "Kategorie auswählen", item => item.name);
+      setOptions(document.getElementById("verifiedRole"), roles, data.config.verificationRoleId, "Rolle auswählen", item => `@ ${item.name}`);
+      setOptions(document.getElementById("supportRole"), roles, data.config.supportRoleId, "Keine Rolle", item => `@ ${item.name}`);
+      setOptions(document.getElementById("applicationChannel"), textChannels, data.config.applicationChannelId, "Panel-Kanal auswählen", item => `# ${item.name}`);
+      setOptions(document.getElementById("applicationReviewChannel"), textChannels, data.config.applicationReviewChannelId, "Prüfkanal auswählen", item => `# ${item.name}`);
+      setOptions(document.getElementById("welcomeChannel"), textChannels, data.config.moduleSettings["Willkommensnachrichten"]?.channelId, "Kanal auswählen", item => `# ${item.name}`);
+      setOptions(document.getElementById("goodbyeChannel"), textChannels, data.config.moduleSettings["Abschiedsnachrichten"]?.channelId, "Kanal auswählen", item => `# ${item.name}`);
+      availableRoles = roles;
+      setMultiOptions(document.getElementById("autoRoleIds"), roles, data.config.moduleSettings["Auto-Rollen"]?.roleIds, item => `@ ${item.name}`);
+      setMultiOptions(document.getElementById("antiSpamIgnoredRoleIds"), roles, data.config.moduleSettings["Anti-Spam"]?.ignoredRoleIds, item => `@ ${item.name}`);
+      applyConfig(data.config);
+      const verifyReady = Boolean(data.config.verificationChannelId && data.config.verificationRoleId);
+      const ticketsReady = Boolean(data.config.ticketChannelId && data.config.ticketCategoryId);
+      document.getElementById("verifyPanelState").textContent = data.config.verificationMessageId ? "Gesendet" : verifyReady ? "Bereit" : "Konfiguration fehlt";
+      document.getElementById("ticketPanelState").textContent = data.config.ticketMessageId ? "Gesendet" : ticketsReady ? "Bereit" : "Konfiguration fehlt";
+      document.getElementById("verificationStatusBadge").textContent = data.config.verificationMessageId ? "Gesendet" : verifyReady ? "Bereit" : "Einrichtung nötig";
+      document.getElementById("verificationConfigState").textContent = verifyReady ? "Bereit" : "Einrichtung nötig";
+      document.getElementById("ticketSetupBadge").textContent = ticketsReady ? "Bereit" : "Einrichtung nötig";
+      document.getElementById("ticketCategoryState").textContent = data.config.ticketCategoryId ? "Eingerichtet" : "Nicht eingerichtet";
+      document.getElementById("supportRoleState").textContent = data.config.supportRoleId ? "Zugewiesen" : "Nicht eingerichtet";
+      document.getElementById("verifyPanelState").textContent = currentConfig.verificationMessageId ? "Gesendet" : verifyReady ? "Bereit" : "Konfiguration fehlt";
+      document.getElementById("ticketPanelState").textContent = currentConfig.ticketMessageId ? "Gesendet" : ticketsReady ? "Bereit" : "Konfiguration fehlt";
+      await loadStats();
+    }
+
+    let availableGuilds = [];
+    let availableRoles = [];
+    async function loadGuilds() {
+      const result = await apiRequest("/api/guilds");
+      availableGuilds = result.guilds;
+      const select = document.getElementById("guildSelect");
+      select.replaceChildren();
+      if (!availableGuilds.length) {
+        select.add(new Option("Keine verwaltbaren Server gefunden", ""));
+        select.disabled = true;
+        throw new Error("Dein Discord-Konto hat keine Server mit „Server verwalten“-Berechtigung.");
+      }
+      for (const guild of availableGuilds) select.add(new Option(guild.name, guild.id));
+      select.disabled = false;
+      const desired = availableGuilds.some(guild => guild.id === selectedGuildId) ? selectedGuildId : availableGuilds[0].id;
+      select.value = desired;
+      await loadGuild(desired);
+    }
+
+    async function connectDiscord() {
+      if (!API_BASE || API_BASE.includes("YOUR-WORKER") || !apiOnline) {
+        throw new Error("Discord-Integration ist noch nicht vollständig eingerichtet.");
+      }
+      const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, "0")).join("");
+      window.location.assign(`${API_BASE}/oauth/start?state=${state}`);
+    }
+
+    async function startCheckout(mode, plan) {
+      if (!availableGuilds.some(guild => guild.id === selectedGuildId)) {
+        throw new Error("Wähle zuerst einen Discord-Server aus.");
+      }
+      if (!botInstalled) throw new Error("Lade den Bot zuerst auf den ausgewählten Server ein.");
+      if (mode === "subscription" && monthlySubscription) {
+        throw new Error("Verwalte oder kündige zuerst dein bestehendes Monatsabo.");
+      }
+      if (premiumTier) throw new Error("Product Bot Premium ist auf diesem Server bereits aktiv.");
+      const result = await apiRequest("/api/billing/checkout", {
+        method: "POST",
+        body: JSON.stringify({ mode, plan, guildId: selectedGuildId })
+      });
+      window.location.assign(result.url);
+    }
+
+    async function openBillingPortal() {
+      const result = await apiRequest("/api/billing/portal", {
+        method: "POST",
+        body: JSON.stringify({ guildId: selectedGuildId })
+      });
+      window.location.assign(result.url);
+    }
+
+    async function syncCommands() {
+      if (!selectedGuildId) throw new Error("Wähle zuerst einen Discord-Server aus.");
+      const result = await apiRequest(`/api/guild/${selectedGuildId}/commands`, { method: "POST" });
+      showToast(`Discord-Befehle aktualisiert: /${result.synced.join(", /")}`);
+    }
+
+    async function enableAvailableModules() {
+      if (!configLoaded || !botInstalled) throw new Error("Verbinde zuerst Discord und lade den Bot auf den ausgewählten Server ein.");
+      const modulesToEnable = new Set([...implementedModules].filter(name => !premiumModules.has(name) || premiumTier));
+      const premiumSkipped = [...implementedModules].filter(name => premiumModules.has(name) && !premiumTier);
+      const warning = "Alle derzeit verfügbaren Module dieses Servers aktivieren?\n\nAchtung: Anti-Link entfernt jeden Link, solange keine erlaubten Domains eingetragen sind. Geplante Module werden nicht aktiviert.";
+      if (!window.confirm(warning)) return;
+      moduleSavePending = true;
+      updatePremiumControls();
+      renderModules();
+      try {
+        await saveConfig({
+          modules: Object.fromEntries([...implementedModules].map(name => [name, modulesToEnable.has(name)])),
+        });
+        enabledByDefault.clear();
+        modulesToEnable.forEach(name => enabledByDefault.add(name));
+        updateModuleCount();
+        renderModules();
+        await syncCommands();
+        if (premiumSkipped.length) showToast(`${implementedModules.size - premiumSkipped.length} verfügbare Module aktiviert. Premium-Module benötigen das Premium-Abo.`);
+        else showToast(`${modulesToEnable.size} verfügbare Module aktiviert.`);
+      } finally {
+        moduleSavePending = false;
+        updatePremiumControls();
+        renderModules();
+      }
+    }
+
+    document.querySelectorAll(".nav-button[data-page]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.page)));
+    document.querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.go)));
+    document.getElementById("mobileMenuButton").addEventListener("click", toggleMobileMenu);
+    window.addEventListener("resize", updateMobileNavigation);
+    document.getElementById("mobileMenuBackdrop").addEventListener("click", () => {
+      closeMobileMenu();
+      document.getElementById("mobileMenuButton").focus();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && document.querySelector(".app").classList.contains("menu-open")) {
+        closeMobileMenu();
+        document.getElementById("mobileMenuButton").focus();
+      }
+    });
+    document.getElementById("moduleSearch").addEventListener("input", event => { searchQuery = event.target.value; renderModules(); });
+    document.querySelectorAll("[data-filter]").forEach(button => button.addEventListener("click", () => {
+      activeFilter = button.dataset.filter;
+      document.querySelectorAll("[data-filter]").forEach(item => {
+        const active = item === button;
+        item.classList.toggle("active", active);
+        item.setAttribute("aria-pressed", String(active));
+      });
+      renderModules();
+    }));
+    document.getElementById("authButton").addEventListener("click", () => connectDiscord().catch(showError));
+    document.getElementById("logoutButton").addEventListener("click", () => {
+      if (savingSections.size) {
+        showToast("Bitte warte, bis der laufende Speichervorgang abgeschlossen ist.");
+        return;
+      }
+      if (hasUnsavedChanges()
+        && !window.confirm("Du hast ungespeicherte Änderungen. Beim Abmelden gehen sie verloren. Trotzdem abmelden?")) {
+        return;
+      }
+      guildLoadSequence++;
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionToken = null;
+      selectedGuildId = "";
+      configLoaded = false;
+      enabledByDefault.clear();
+      premiumActive = false;
+      premiumTier = false;
+      monthlySubscription = false;
+      applicationPanelUsage = null;
+      updateApplicationUsage();
+      botInstalled = false;
+      currentConfig = {};
+      failedFormStates.clear();
+      updatePremiumControls();
+      updateSaveStates();
+      updateModuleCount();
+      renderModules();
+      for (const id of ["memberMetric", "verifiedMetric", "ticketMetric", "ticketNavCount", "openTicketCount"]) {
+        document.getElementById(id).textContent = "—";
+      }
+      document.getElementById("ticketCountBadge").textContent = "Server auswählen";
+      document.getElementById("activityList").textContent = "Melde dich an und wähle einen Server, um echte Aktivitäten zu laden.";
+      document.getElementById("verifyPanelState").textContent = "Nicht gesendet";
+      document.getElementById("ticketPanelState").textContent = "Nicht gesendet";
+      document.getElementById("ticketCategoryState").textContent = "Nicht eingerichtet";
+      document.getElementById("supportRoleState").textContent = "Nicht eingerichtet";
+      document.getElementById("verificationStatusBadge").textContent = "Nicht eingerichtet";
+      document.getElementById("ticketSetupBadge").textContent = "Server auswählen";
+      document.getElementById("gatewayRuntimeSummary").textContent = "Nicht verbunden.";
+      document.getElementById("gatewayRuntimeBadge").textContent = "Offline";
+      document.getElementById("gatewayRuntimeBadge").className = "badge neutral";
+      document.querySelectorAll(".preview-server-name").forEach(element => { element.textContent = "Discord-Server"; });
+      clearGuildResources("Server auswählen");
+      document.getElementById("verifyTitle").value = "Willkommen auf deinem Server!";
+      document.getElementById("verifyMessage").value = "Bestätige kurz, dass du ein echter Mensch bist.";
+      document.getElementById("verifyButtonText").value = "Jetzt verifizieren";
+      document.getElementById("verifyColor").value = "#8b78ff";
+      document.getElementById("ticketTitle").value = "Wie können wir dir helfen?";
+      document.getElementById("ticketMessage").value = "Erstelle ein Ticket, unser Team hilft dir gerne.";
+      document.getElementById("ticketColor").value = "#8b78ff";
+      document.getElementById("ticketButtonText").value = "＋ Ticket erstellen";
+      document.getElementById("verifyImageUrl").value = "";
+      document.getElementById("ticketImageUrl").value = "";
+      document.getElementById("applicationTitle").value = "Bewirb dich bei uns";
+      document.getElementById("applicationMessage").value = "Fülle das Formular aus, um dich bei unserem Team zu bewerben.";
+      document.getElementById("applicationButtonText").value = "Bewerbung starten";
+      document.getElementById("applicationColor").value = "#8b78ff";
+      document.getElementById("applicationImageUrl").value = "";
+      document.getElementById("applicationQuestions").value = "Warum möchtest du beitreten?\nWelche Erfahrung bringst du mit?\nErzähl uns etwas über dich.";
+      document.getElementById("applicationPanelState").textContent = "Nicht gesendet";
+      document.getElementById("serverNameInput").value = "";
+      updatePreviews();
+      document.getElementById("guildSelect").replaceChildren(new Option("Mit Discord verbinden", ""));
+      document.getElementById("guildSelect").disabled = true;
+      document.getElementById("logoutButton").hidden = true;
+      document.getElementById("authButton").hidden = false;
+      document.getElementById("setupNotice").hidden = false;
+      document.getElementById("headerServerName").textContent = "Discord-Server auswählen";
+      setConnectionState(false, "Abgemeldet.");
+      showToast("Du wurdest abgemeldet.");
+    });
+    document.getElementById("guildSelect").addEventListener("change", event => {
+      if (event.target.value) loadGuild(event.target.value).catch(showError);
+    });
+    document.getElementById("serverSelect").addEventListener("click", () => {
+      document.getElementById("guildSelect").focus();
+    });
+    document.getElementById("helpButton").addEventListener("click", () => navigate("settings"));
+    document.getElementById("saveVerify").addEventListener("click", () => saveFormSections("verification").catch(showError));
+    document.getElementById("saveVerifyBottom").addEventListener("click", () => saveFormSections("verification").catch(showError));
+    document.getElementById("saveTickets").addEventListener("click", () => saveFormSections("tickets").catch(showError));
+    document.getElementById("saveTicketsBottom").addEventListener("click", () => saveFormSections("tickets").catch(showError));
+    document.getElementById("saveApplications").addEventListener("click", () => saveFormSections("applications").catch(showError));
+    document.getElementById("saveApplicationsBottom").addEventListener("click", () => saveFormSections("applications").catch(showError));
+    document.getElementById("saveSettings").addEventListener("click", () => saveFormSections("settings").catch(showError));
+    document.getElementById("publishVerify").addEventListener("click", () => publishPanel("verification").catch(showError));
+    document.getElementById("publishVerifyOverview").addEventListener("click", () => publishPanel("verification").catch(showError));
+    document.getElementById("publishTicketPanel").addEventListener("click", () => publishPanel("tickets").catch(showError));
+    document.getElementById("publishApplicationPanel").addEventListener("click", () => publishPanel("applications").catch(showError));
+    document.getElementById("subscribeDesign").addEventListener("click", () => startCheckout("subscription", "custom_design").catch(showError));
+    document.getElementById("subscribePremium").addEventListener("click", () => startCheckout("subscription", "premium").catch(showError));
+    document.getElementById("buyOneTime").addEventListener("click", () => startCheckout("one_time", "custom_design").catch(showError));
+    document.getElementById("manageSubscription").addEventListener("click", () => openBillingPortal().catch(showError));
+    document.getElementById("manageSubscriptionPage").addEventListener("click", () => openBillingPortal().catch(showError));
+    document.getElementById("syncCommands").addEventListener("click", () => syncCommands().catch(showError));
+    document.getElementById("enableAvailableModules").addEventListener("click", () => enableAvailableModules().catch(showError));
+    document.getElementById("refreshAdmin").addEventListener("click", () => refreshAdminOverview().catch(showError));
+    document.getElementById("searchAdminUser").addEventListener("click", () => searchAdminUser().catch(showError));
+    document.getElementById("adminUserResults").addEventListener("change", event => {
+      document.getElementById("grantAdminGift").disabled = !adminUsers.some(user => user.userId === event.target.value);
+    });
+    document.getElementById("grantAdminGift").addEventListener("click", () => grantAdminGift().catch(showError));
+    document.getElementById("verifyPreviewButton").disabled = true;
+
+    document.querySelectorAll("#verifyTitle, #verifyMessage, #verifyButtonText, #verifyColor, #verifyImageUrl, #ticketTitle, #ticketMessage, #ticketButtonText, #ticketColor, #ticketImageUrl, #applicationTitle, #applicationMessage, #applicationButtonText, #applicationQuestions, #applicationColor, #applicationImageUrl, #welcomeMessage, #goodbyeMessage")
+      .forEach(element => element.addEventListener("input", updatePreviews));
+    const formControlSelector = [
+      "#verifyTitle", "#verifyMessage", "#verifyButtonText", "#verifyColor", "#verifyImageUrl", "#verifyChannel", "#verifiedRole",
+      "#ticketTitle", "#ticketMessage", "#ticketButtonText", "#ticketColor", "#ticketImageUrl", "#ticketChannel", "#ticketCategory", "#supportRole",
+      "#applicationTitle", "#applicationMessage", "#applicationButtonText", "#applicationQuestions", "#applicationColor", "#applicationImageUrl", "#applicationChannel", "#applicationReviewChannel",
+      "#languageSelect", "#timezoneSelect", "#logChannel", "#welcomeChannel", "#welcomeMessage", "#goodbyeChannel", "#goodbyeMessage",
+      "#autoRoleIds", "#antiSpamLimit", "#antiSpamWindow", "#antiSpamIgnoredRoleIds", "#allowedLinkDomains", "#blockedWords",
+      "#minimumAccountAge", "#autoModMaxMentions", "#antiRaidJoinLimit", "#antiRaidWindow", "#autoModBlockInvites",
+    ].join(", ");
+    document.querySelectorAll(formControlSelector).forEach(element => {
+      element.addEventListener("input", updateSaveStates);
+      element.addEventListener("change", updateSaveStates);
+    });
+    window.addEventListener("beforeunload", event => {
+      if (!hasUnsavedChanges()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+    document.getElementById("resetVerify").addEventListener("click", () => {
+      document.getElementById("verifyTitle").value = "Willkommen auf deinem Server!";
+      document.getElementById("verifyMessage").value = "Bestätige kurz, dass du ein echter Mensch bist.";
+      document.getElementById("verifyButtonText").value = "Jetzt verifizieren";
+      document.getElementById("verifyColor").value = "#8b78ff";
+      document.getElementById("verifyImageUrl").value = "";
+      updatePreviews();
+      updateSaveStates();
+    });
+
+    async function initialize() {
+      updateMobileNavigation();
+      clearGuildResources("Discord-Server auswählen");
+      updatePreviews();
+      configureInviteLinks();
+      const callback = new URLSearchParams(location.hash.slice(1));
+      if (callback.has("session")) {
+        sessionToken = callback.get("session");
+        sessionStorage.setItem(SESSION_KEY, sessionToken);
+        history.replaceState(null, "", location.pathname + location.search);
+      }
+      const params = new URLSearchParams(location.search);
+      if (params.has("auth_error")) showToast(`Discord-Anmeldung fehlgeschlagen: ${params.get("auth_error")}.`);
+      if (params.get("billing") === "success") showToast("Zahlung abgeschlossen. Premium wird nach Bestätigung durch Stripe freigeschaltet.");
+      if (params.get("billing") === "cancel") showToast("Der Checkout wurde abgebrochen.");
+      if (!API_BASE || API_BASE.includes("YOUR-WORKER")) {
+        setConnectionState(false, "Cloudflare-Worker ist noch nicht konfiguriert.");
+        document.getElementById("authButton").disabled = true;
+        updatePremiumControls();
+        renderModules();
+        return;
+      }
+      try {
+        const [health, publicConfig] = await Promise.all([
+          apiRequest("/health"),
+          apiRequest("/api/public-config")
+        ]);
+        apiOnline = health.ok === true && health.discordReady === true;
+        document.getElementById("authButton").disabled = !apiOnline;
+        document.getElementById("inviteButton").href = publicConfig.inviteUrl;
+        document.getElementById("settingsInviteButton").href = publicConfig.inviteUrl;
+        document.getElementById("setupNotice").hidden = health.discordReady;
+        if (!health.discordReady) {
+          document.getElementById("setupNotice").innerHTML = "<strong>Discord-Integration noch nicht vollständig eingerichtet</strong>Cloudflare-Secrets für die Discord-Anwendung und den Bot müssen eingerichtet werden. Siehe die Deployment-Anleitung in README.md.";
+        }
+      } catch (error) {
+        apiOnline = false;
+        document.getElementById("authButton").disabled = true;
+        showError(error);
+        setConnectionState(false, "Cloudflare-API nicht erreichbar oder noch nicht konfiguriert.");
+      }
+      if (sessionToken && apiOnline) {
+        document.getElementById("authButton").hidden = true;
+        document.getElementById("logoutButton").hidden = false;
+        try {
+          await loadGuilds();
+          await loadAdminPanel();
+        } catch (error) {
+          showError(error);
+        }
+      } else {
+        setConnectionState(false, sessionToken ? "Discord-Sitzung abgelaufen. Bitte erneut anmelden." : "Bitte mit Discord anmelden.");
+      }
+      updatePremiumControls();
+      updatePreviews();
+      renderModules();
+    }
+
+    initialize().catch(showError);
+  </script>
+</body>
+</html>

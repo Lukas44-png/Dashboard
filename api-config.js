@@ -1,0 +1,2 @@
+window.PRODUCT_BOT_API_BASE = "https://YOUR-WORKER.workers.dev";
+window.PRODUCT_BOT_CLIENT_ID = "1567181607259869324";
